@@ -1,2 +1,2 @@
 
-add_header_only_library(ClusterHeaders ${CMAKE_CURRENT_SOURCE_DIR}/cluster ${CMAKE_INSTALL_INCLUDEDIR}/cluster)
+add_header_only_library(ClusterHeaders ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_INSTALL_INCLUDEDIR})
