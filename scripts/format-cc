@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+
+if [ $# -eq 0 ]; then
+    echo "usage: format-cc [DIR]"
+    exit
+fi
+
+find $1 -name *.cc -o -name *.hpp -o -name *.cpp -name *.h -o -name *.hh | xargs clang-format -i
