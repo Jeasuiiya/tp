@@ -5,22 +5,26 @@ set(CMAKE_CXX_STANDARD 20)
 
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 
-option(BUILD_TEST "build test" ON)
+option(FRAMEWORK_BUILD_TEST "build test" ON)
+option(FRAMEWORK_ENABLE_BINDINGS_PYTHON "python bindings" ON)
 # set(CMAKE_MESSAGE_LOG_LEVEL TRACE)
 include(HeaderOnlyLibrary)
 include(FetchSpdlog)
-fetch_spdlog()
 
+fetch_spdlog()
+if(FRAMEWORK_ENABLE_BINDINGS_PYTHON)
+    include(FetchPybind11)
+    fetch_pybind11()
+endif()
 
 add_subdirectory(ccsrc)
 
-
-if(BUILD_TEST)
+if(FRAMEWORK_BUILD_TEST)
     include(FetchGTest)
     set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
     fetch_gtest()
     add_subdirectory(tests)
-endif(BUILD_TEST)
+endif(FRAMEWORK_BUILD_TEST)
 
 
 
