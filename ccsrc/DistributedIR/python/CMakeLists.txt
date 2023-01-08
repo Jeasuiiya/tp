@@ -1,1 +1,2 @@
-add_pybind11_module(pybind11_example pybind11_example.cc)
+add_pybind11_module(_graph graph.cc)
+target_link_libraries(_graph PUBLIC DistributedIRHeaders)

@@ -10,7 +10,8 @@ function(fetch_pybind11)
 endfunction(fetch_pybind11)
 
 function(add_python_subdirectory subdirectory)
-    add_subdirectory(${subdirectory} ${CMAKE_BINARY_DIR}/python)
+    message(${ARGV0})
+    add_subdirectory(${subdirectory} ${CMAKE_BINARY_DIR}/python/${ARGV1})
 endfunction(add_python_subdirectory)
 
 function(add_pybind11_module)

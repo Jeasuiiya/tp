@@ -17,30 +17,28 @@ class Graph {
    public:
     Graph() {}
     virtual ~Graph() {}
-    // GEN_ACCESSOR_IN_DEC(std::vector<Node>, nodes)
-    // void add_node(Node<T> node) {
-    //   node_map.insert(std::pair<std::string, Node<T>&>(node.get_name(),
-    //   node)); nodes.push_back(node);
-    // }
-    // void add_node(int at, Node<T> node) {
-    //   node_map.insert(std::pair<std::string, Node<T>&>(node.get_name(),
-    //   node)); nodes.insert(nodes.begin() + at, node);
-    // }
-    // // Node* add_node() {
-    // //   Node node;
-    // //   // node_map.insert(std::pair<std::string, Node&>(node.get_name(),
-    // node));
-    // //   nodes.push_back(node);
-    // //   return &node;
-    // // }
-    // Node<T>& get_node(int at) { return nodes.at(at); }
-    // Node<T>& get_node(std::string name) { return node_map.find(name)->second;
-    // } std::string to_string() {
-    //   return std::accumulate(
-    //       nodes.begin(), nodes.end(), std::string(),
-    //       [](std::string& s, Node<T>& p) { return s + "\n" + p.to_string();
-    //       });
-    // }
+    GEN_ACCESSOR_IN_DEC(std::vector<NodeBase>, nodes)
+    GEN_ACCESSOR_IN_DEC(ALL(std::map<std::string, NodeBase&>), node_map)
+    void add_node(NodeBase node) {
+        node_map.insert(
+            std::pair<std::string, NodeBase&>(node.get_name(), node));
+        nodes.push_back(node);
+    }
+    void add_node(int at, NodeBase node) {
+        node_map.insert(
+            std::pair<std::string, NodeBase&>(node.get_name(), node));
+        nodes.insert(nodes.begin() + at, node);
+    }
+
+    NodeBase& get_node(int at) { return nodes.at(at); }
+    NodeBase& get_node(std::string name) { return node_map.find(name)->second; }
+    std::string to_string() {
+        // return "";
+        return std::accumulate(nodes.begin(), nodes.end(), std::string(),
+                               [](std::string s, NodeBase& p) {
+                                   return s + "\n" + p.to_string();
+                               });
+    }
 };
 
 class SubGraph : public Graph {
@@ -52,5 +50,4 @@ class SubGraph : public Graph {
 
 }  // namespace framework
 
-#endif /* ifndef _GRAPH_GRAPH_H \
-        */
+#endif /* ifndef _GRAPH_GRAPH_H \*/
