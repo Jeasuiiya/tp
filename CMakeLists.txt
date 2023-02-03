@@ -6,11 +6,22 @@ set(CMAKE_CXX_STANDARD 20)
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 
 option(FRAMEWORK_BUILD_TEST "build test" ON)
+
+# cmake -DPYBIND11_PYTHON_VERSION=3.6 ..
+
+# # Another method:
+# cmake -DPYTHON_EXECUTABLE=/path/to/python ..
+
+# # This often is a good way to get the current Python, works in environments:
+# cmake -DPYTHON_EXECUTABLE=$(python3 -c "import sys; print(sys.executable)") ..
 option(FRAMEWORK_ENABLE_BINDINGS_PYTHON "python bindings" ON)
+
 # set(CMAKE_MESSAGE_LOG_LEVEL TRACE)
 include(HeaderOnlyLibrary)
 include(FetchSpdlog)
+include(FetchLLVM)
 
+fetch_llvm()
 fetch_spdlog()
 if(FRAMEWORK_ENABLE_BINDINGS_PYTHON)
     include(FetchPybind11)

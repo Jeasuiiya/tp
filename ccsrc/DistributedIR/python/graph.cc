@@ -79,7 +79,7 @@ PYBIND11_MODULE(PYBIND11_CURRENT_MODULE_NAME, m) {
     py::class_<PyNode>(m, "Node")
         .def(py::init())
         .def(py::init([](std::string name, std::string op) {
-            PyNode* n = new PyNode;
+            auto n = std::make_unique<PyNode>();
             n->set_name(name);
             n->set_op(op);
             return n;
