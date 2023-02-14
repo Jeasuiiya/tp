@@ -9,11 +9,11 @@ fi
 BUILD_DIR="build"
 FLAGS="-quiet"
 
-if [ $CLANG_PATH ]; then
-    PATH=$PATH:$CLANG_PATH
+if [ -n "$CLANG_PATH" ]; then
+    PATH=$CLANG_PATH:$PATH
 fi
 
-if [ $2 ]; then
+if [ -n "$2" ]; then
     BUILD_DIR=$2
 fi
 

@@ -40,6 +40,7 @@ if(FRAMEWORK_BUILD_TEST)
     include(FetchGTest)
     set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
     fetch_gtest()
+    enable_testing()
     add_subdirectory(tests)
 endif(FRAMEWORK_BUILD_TEST)
 

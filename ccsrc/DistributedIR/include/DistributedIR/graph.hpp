@@ -42,10 +42,10 @@ class Graph {
 };
 
 class SubGraph : public Graph {
-    std::vector<SubGraph> input_graphs;                       //输入图
-    std::vector<std::map<std::string, std::string>> inputs;   //各图输入
-    std::vector<SubGraph> output_graphs;                      //输出图
-    std::vector<std::map<std::string, std::string>> outputs;  //输出
+    std::vector<SubGraph> input_graphs;                       // 输入图
+    std::vector<std::map<std::string, std::string>> inputs;   // 各图输入
+    std::vector<SubGraph> output_graphs;                      // 输出图
+    std::vector<std::map<std::string, std::string>> outputs;  // 输出
 };
 
 }  // namespace framework

@@ -13,19 +13,19 @@ namespace framework {
 
 class NodeBase {
    private:
-    std::string name;                 //节点名
-    std::string op;                   //算子名
+    std::string name;                 // 节点名
+    std::string op;                   // 算子名
     std::vector<std::string> inputs;  // 节点输入
     std::vector<std::string> outputs;
-    std::string device;                        //该节点的计算设备
-    std::map<std::string, std::string> attrs;  //节点属性
-    long start_time;                           //开始时间
-    long end_time;                             //结束时间
-    long compute_cost;                         //计算代价
-    long temporary_memory;                     //临时内存
-    long persistent_memory;                    //持久内存
-    long input_memory;                         //输入内存
-    long output_memory;                        //输出内存
+    std::string device;                        // 该节点的计算设备
+    std::map<std::string, std::string> attrs;  // 节点属性
+    long start_time;                           // 开始时间
+    long end_time;                             // 结束时间
+    long compute_cost;                         // 计算代价
+    long temporary_memory;                     // 临时内存
+    long persistent_memory;                    // 持久内存
+    long input_memory;                         // 输入内存
+    long output_memory;                        // 输出内存
 
     // T data;
    public:
@@ -87,7 +87,7 @@ class NodeBase {
 };
 
 class MergedNode : public NodeBase {
-    std::vector<NodeBase> merged_nodes;  //已合并节点
+    std::vector<NodeBase> merged_nodes;  // 已合并节点
 };
 
 // template <typename T>

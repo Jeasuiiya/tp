@@ -34,6 +34,11 @@ struct EdgePort {
         return *this;
     }
 
+    EdgePort<TT> operator|(Edge<TT>* edge) {
+        this->edge = edge;
+        return *this;
+    }
+
     EdgePort<TT> operator>>(Edge<TT>& edge) {
         edge.start = *this;
         return *this;
@@ -41,6 +46,16 @@ struct EdgePort {
 
     EdgePort<TT> operator<<(Edge<TT>& edge) {
         edge.end = *this;
+        return *this;
+    }
+
+    EdgePort<TT> operator>>(Edge<TT>* edge) {
+        edge->start = *this;
+        return *this;
+    }
+
+    EdgePort<TT> operator<<(Edge<TT>* edge) {
+        edge->end = *this;
         return *this;
     }
 };
@@ -60,12 +75,12 @@ struct Edge {
     Edge(TT* start, int start_index, TT* end, int end_index)
         : start(EdgePort<TT>(start, start_index)),
           end(EdgePort<TT>(end, end_index)) {
-        this->start >> *this;
-        this->end << *this;
+        this->start | this;
+        this->end | this;
     }
     Edge(EdgePort<TT> start, EdgePort<TT> end) : start(start), end(end) {
-        this->start >> *this;
-        this->end << *this;
+        this->start | this;
+        this->end | this;
     }
     EdgePort<TT> start;
     EdgePort<TT> end;
