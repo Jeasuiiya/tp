@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+set -e
+
+if [ $# -eq 0 ]; then
+    echo "usage: [env:CLANG_PATH] [env:FLAGS] format-cc [DIR] [BUILD_DIR]"
+    exit 1
+fi
+
+BUILD_DIR="build"
+FLAGS="-quiet"
+
+if [ $CLANG_PATH ]; then
+    PATH=$PATH:$CLANG_PATH
+fi
+
+if [ $2 ]; then
+    BUILD_DIR=$2
+fi
+
+if [ ! -f $BUILD_DIR/compile_commands.json ]; then
+    cmake -S. -B $BUILD_DIR -DPYTHON_EXECUTABLE=$(python3 -c "import sys; print(sys.executable)") -DCMAKE_BUILD_TYPE=Debug -G Ninja 
+fi
+
+run-clang-tidy -p $BUILD_DIR $FLAGS $1

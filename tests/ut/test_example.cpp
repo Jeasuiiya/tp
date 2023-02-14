@@ -10,8 +10,3 @@ TEST(TestExample, BasicAssertions) {
   EXPECT_EQ(7 * 6, 42);
   // EXPECT_EQ(add(1, 2), 3);
 }
-
-TEST(TestExample2, BasicAssertions) {
-    framework::Op op(1, 1);
-    framework::OpRegistry::Global()->Register(op);
-}

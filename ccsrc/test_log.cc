@@ -92,7 +92,7 @@ int main(int, char *[]) {
         spdlog::flush_every(std::chrono::seconds(3));
 
         // Apply some function on all registered loggers
-        spdlog::apply_all([&](std::shared_ptr<spdlog::logger> l) {
+        spdlog::apply_all([&](const std::shared_ptr<spdlog::logger> &l) {
             l->info("End of example.");
         });
 

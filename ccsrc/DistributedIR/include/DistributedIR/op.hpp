@@ -6,17 +6,19 @@
 #include <algorithm>
 #include <memory>
 #include <numeric>
+#include <set>
 #include <sstream>
 #include <string>
 #include <vector>
-#include <set>
+
+#include "common/util.hpp"
 namespace framework {
 
 /*! \enum ElementType
  *
  *  Detailed description
  */
-enum class ElementType { u8, i8, u16, i16, u32, i32, u64, i64, f32, f64 };
+enum class ElementType { U8, I8, U16, I16, U32, I32, U64, I64, F32, F64 };
 
 class Arg {
    public:
@@ -40,13 +42,14 @@ class Op {
     ~Op() {
         delete[] in_args;
         delete[] out_args;
-    };
+    }
     std::string to_string() const {
         std::stringstream ss;
         ss << "Op("
            << "in=" << in << ",out=" << out << ",name=" << name << ")";
         return ss.str();
-    };
+    }
+    GEN_ACCESSOR_IN_DEC(std::string, name)
 
    private:
     /* data */
