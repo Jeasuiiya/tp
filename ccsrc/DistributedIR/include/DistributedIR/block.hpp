@@ -59,8 +59,14 @@ struct Edge {
     using TT = typename std::remove_reference<T>::type;
     Edge(TT* start, int start_index, TT* end, int end_index)
         : start(EdgePort<TT>(start, start_index)),
-          end(EdgePort<TT>(end, end_index)) {}
-    Edge(EdgePort<TT> start, EdgePort<TT> end) : start(start), end(end) {}
+          end(EdgePort<TT>(end, end_index)) {
+        this->start >> *this;
+        this->end << *this;
+    }
+    Edge(EdgePort<TT> start, EdgePort<TT> end) : start(start), end(end) {
+        this->start >> *this;
+        this->end << *this;
+    }
     EdgePort<TT> start;
     EdgePort<TT> end;
 };
