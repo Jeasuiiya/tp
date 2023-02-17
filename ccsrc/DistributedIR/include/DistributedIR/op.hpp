@@ -43,7 +43,7 @@ class Op {
         delete[] in_args;
         delete[] out_args;
     }
-    std::string to_string() const {
+    std::string to_string() {
         std::stringstream ss;
         ss << "Op("
            << "in=" << in << ",out=" << out << ",name=" << name << ")";
@@ -64,13 +64,13 @@ class OpRegistry {
    public:
     OpRegistry() = default;
     ~OpRegistry() = default;
-    void Register(Op op);
+    void Register(Op const& op);
     static OpRegistry* Global();
     std::string to_string() {
         std::stringstream ss;
         ss << "OpRegistry["
            << std::accumulate(ops.begin(), ops.end(), std::string(),
-                              [](const std::string& s, const Op& p) {
+                              [](const std::string& s, Op& p) {
                                   return s +
                                          (s.empty() ? std::string() : ", ") +
                                          p.to_string();

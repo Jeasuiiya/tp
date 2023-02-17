@@ -2,6 +2,7 @@
 #include <pybind11/stl.h>
 
 #include <DistributedIR/graph.hpp>
+#include <utility>
 
 #define STRINGIFY(x) #x
 #define MACRO_STRINGIFY(x) STRINGIFY(x)
@@ -12,8 +13,8 @@ class Node {
     framework::NodeBase* node_ptr;
 
    public:
-    Node(framework::NodeBase* node_ptr) { node_ptr = node_ptr; }
-    Node(Node&& node) { node_ptr = node.node_ptr; }
+    explicit Node(framework::NodeBase* node_ptr) { node_ptr = node_ptr; }
+    Node(Node&& node) noexcept { node_ptr = node.node_ptr; }
     Node(Node& node) { node_ptr = node.node_ptr; }
     Node() { node_ptr = new framework::NodeBase(); }
     ~Node() { delete node_ptr; }
@@ -30,8 +31,12 @@ class Node {
     GEN_PROXY_ACCESSOR(long, node_ptr, persistent_memory)
     GEN_PROXY_ACCESSOR(long, node_ptr, input_memory)
     GEN_PROXY_ACCESSOR(long, node_ptr, output_memory)
-    void add_input(std::string input) { node_ptr->add_input(input); }
-    void add_output(std::string output) { node_ptr->add_output(output); }
+    void add_input(const std::string& input) {
+        node_ptr->add_input(std::move(input));
+    }
+    void add_output(const std::string& output) {
+        node_ptr->add_output(std::move(output));
+    }
     std::string to_string() { return node_ptr->to_string(); }
 };
 class Graph {
@@ -39,8 +44,8 @@ class Graph {
     framework::Graph* graph_ptr;
 
    public:
-    Graph(framework::Graph* graph) { graph_ptr = graph; }
-    Graph(Graph&& graph) { graph_ptr = graph.graph_ptr; }
+    explicit Graph(framework::Graph* graph) { graph_ptr = graph; }
+    Graph(Graph&& graph) noexcept { graph_ptr = graph.graph_ptr; }
     Graph() { graph_ptr = new framework::Graph(); }
     ~Graph() { delete graph_ptr; }
     framework::Graph* GraphPtr() { return graph_ptr; }
@@ -59,7 +64,7 @@ class Graph {
     }
 
     Node get_node(int at) { return Node(&graph_ptr->get_nodes().at(at)); }
-    Node get_node(std::string name) {
+    Node get_node(const std::string& name) {
         return Node(&graph_ptr->get_node_map().find(name)->second);
     }
     std::string to_string() { return graph_ptr->to_string(); }
@@ -80,8 +85,8 @@ PYBIND11_MODULE(PYBIND11_CURRENT_MODULE_NAME, m) {
         .def(py::init())
         .def(py::init([](std::string name, std::string op) {
             auto n = std::make_unique<PyNode>();
-            n->set_name(name);
-            n->set_op(op);
+            n->set_name(std::move(name));
+            n->set_op(std::move(op));
             return n;
         }))
         .def_property("name", &PyNode::get_name, &PyNode::set_name)
@@ -111,7 +116,8 @@ PYBIND11_MODULE(PYBIND11_CURRENT_MODULE_NAME, m) {
         .def("add_node", py::overload_cast<PyNode&>(&PyGraph::add_node))
         .def("add_node", py::overload_cast<int, PyNode&>(&PyGraph::add_node))
         .def("get_node", py::overload_cast<int>(&PyGraph::get_node))
-        .def("get_node", py::overload_cast<std::string>(&PyGraph::get_node))
+        .def("get_node",
+             py::overload_cast<const std::string&>(&PyGraph::get_node))
         .def("__repr__", &PyGraph::to_string)
         .def("__str__", &PyGraph::to_string);
 

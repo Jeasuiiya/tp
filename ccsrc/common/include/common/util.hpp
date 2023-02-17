@@ -26,9 +26,9 @@
         */
 
 #ifndef GEN_PROXY_SETTER
-#define GEN_PROXY_SETTER(fType, Proxy, fName) \
-    inline void set##_##fName(fType fName) {  \
-        this->Proxy->set##_##fName(fName);    \
+#define GEN_PROXY_SETTER(fType, Proxy, fName)         \
+    inline void set##_##fName(fType fName) {          \
+        this->Proxy->set##_##fName(std::move(fName)); \
     }
 #endif /* ifndef GEN_PROXY_SETTER(cName, fName, fType) */
 

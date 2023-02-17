@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -e
+
+if [ $# -eq 0 ]; then
+    echo "usage: format-py [DIR] [FLAGS]"
+    exit 1
+fi
+
+pylint $2 $1

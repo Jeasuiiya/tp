@@ -1,0 +1,74 @@
+name: Check CI
+on:
+  push: 
+    branches:
+      - dev
+  pull_request: yes
+jobs:
+  check-format-and-lint:
+    name: Format and Lint Check
+    runs-on: self-hosted
+    needs: checkout
+    steps:
+    - uses: actions/checkout@v3
+    - name: "[clang-format] Check for C/C++/Protobuf Format."
+      id: check-cc-format
+      continue-on-error: true
+      uses: http://github.com/jidicula/clang-format-action@v4.10.2
+      with:
+        clang-format-version: '15'
+        check-path: 'ccsrc'
+    - name: "[clang-tidy] Check for CC Lint"
+      id: check-cc-lint
+      continue-on-error: true
+      run: |
+        TIDY_FLAGS="-quiet -warnings-as-errors=*" ./scripts/lint-cc ccsrc/
+    - uses: https://github.com/actions/setup-python@v4
+      id: setup-python
+      continue-on-error: true
+      with:
+        python-version: "3.9"
+        cache: "pip"
+    - run: pip install -r dev-requirements.txt
+    - name: "[black] Check for Python Format"
+      id: check-py-format
+      continue-on-error: true
+      run: |
+        bash ./scripts/format-py python "--check --diff"
+    - name: "[pylint] Check for Python Lint"
+      id: check-py-lint
+      continue-on-error: true
+      run: |
+        bash ./scripts/lint-py python
+    - name: "[cmake-format] Check for Cmake Format"
+      id: check-cmake-format
+      continue-on-error: true
+      run: |
+        cmake-format CMakeLists.txt ccsrc/**/CMakeLists.txt cmake/*.cmake --check
+    - name: "[cmake-lint] Check for Cmake Lint"
+      id: check-cmake-lint
+      continue-on-error: true
+      run: |
+        cmake-lint CMakeLists.txt ccsrc/**/CMakeLists.txt cmake/*.cmake
+    - name: Check Result
+      run: |
+        set -x
+        echo "check-cc-format:" ${{ steps.check-cc-format.outcome }}
+        echo "check-cc-lint:" ${{ steps.check-cc-lint.outcome }}
+        echo "check-py-format:" ${{ steps.check-py-format.outcome }}
+        echo "check-py-lint:" ${{ steps.check-py-lint.outcome }}
+        echo "check-cmake-format:" ${{ steps.check-cmake-format.outcome }}
+        echo "check-cmake-lint:" ${{ steps.check-cmake-lint.outcome }}
+        if [[ ${{ steps.check-cc-format.outcome }} == "failure"
+              || ${{ steps.check-cc-lint.outcome }} == "failure"
+              || ${{ steps.check-py-format.outcome }} == "failure"
+              || ${{ steps.check-py-lint.outcome }} == "failure"
+              || ${{ steps.check-cmake-format.outcome }} == "failure"
+              || ${{ steps.check-cmake-lint.outcome }} == "failure"
+              ]]; then
+          echo failure
+          exit 1;
+        else
+          echo success
+          exit 0;
+        fi

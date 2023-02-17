@@ -1,5 +1,5 @@
-#ifndef _FRAMEWORK_GRAPH_GRAPH_H
-#define _FRAMEWORK_GRAPH_GRAPH_H
+#ifndef FRAMEWORK_GRAPH_GRAPH_H
+#define FRAMEWORK_GRAPH_GRAPH_H
 
 #include <numeric>
 #include <utility>
@@ -31,7 +31,9 @@ class Graph {
     }
 
     NodeBase& get_node(int at) { return nodes.at(at); }
-    NodeBase& get_node(std::string name) { return node_map.find(name)->second; }
+    NodeBase& get_node(const std::string& name) {
+        return node_map.find(name)->second;
+    }
     std::string to_string() {
         // return "";
         return std::accumulate(nodes.begin(), nodes.end(), std::string(),
@@ -42,12 +44,12 @@ class Graph {
 };
 
 class SubGraph : public Graph {
-    std::vector<SubGraph> input_graphs;                       // 输入图
+    std::vector<SubGraph*> input_graphs;                      // 输入图
     std::vector<std::map<std::string, std::string>> inputs;   // 各图输入
-    std::vector<SubGraph> output_graphs;                      // 输出图
+    std::vector<SubGraph*> output_graphs;                     // 输出图
     std::vector<std::map<std::string, std::string>> outputs;  // 输出
 };
 
 }  // namespace framework
 
-#endif /* ifndef _GRAPH_GRAPH_H \*/
+#endif
