@@ -4,7 +4,6 @@ on:
     branches:
       - dev
   pull_request: yes
-
 jobs:
   formatting-check:
     name: Formatting Check
@@ -12,9 +11,6 @@ jobs:
     needs: checkout
     steps:
     - uses: actions/checkout@v3
-    - name: List files in the repository
-      run: |
-        ls ${{ github.workspace }}
     - name: Run clang-format style check for C/C++/Protobuf programs.
       uses: http://github.com/jidicula/clang-format-action@v4.10.2
       with:
