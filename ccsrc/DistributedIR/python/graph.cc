@@ -19,25 +19,21 @@ class Node {
     Node() { node_ptr = new framework::NodeBase(); }
     ~Node() { delete node_ptr; }
     framework::NodeBase* NodePtr() { return this->node_ptr; }
-    GEN_PROXY_ACCESSOR(std::string, node_ptr, name)
-    GEN_PROXY_ACCESSOR(std::string, node_ptr, op)
-    GEN_PROXY_ACCESSOR(std::vector<std::string>, node_ptr, inputs)
-    GEN_PROXY_ACCESSOR(std::vector<std::string>, node_ptr, outputs)
-    GEN_PROXY_ACCESSOR(ALL(std::map<std::string, std::string>), node_ptr, attrs)
-    GEN_PROXY_ACCESSOR(long, node_ptr, start_time)
-    GEN_PROXY_ACCESSOR(long, node_ptr, end_time)
-    GEN_PROXY_ACCESSOR(long, node_ptr, compute_cost)
-    GEN_PROXY_ACCESSOR(long, node_ptr, temporary_memory)
-    GEN_PROXY_ACCESSOR(long, node_ptr, persistent_memory)
-    GEN_PROXY_ACCESSOR(long, node_ptr, input_memory)
-    GEN_PROXY_ACCESSOR(long, node_ptr, output_memory)
-    void add_input(const std::string& input) {
-        node_ptr->add_input(std::move(input));
-    }
-    void add_output(const std::string& output) {
-        node_ptr->add_output(std::move(output));
-    }
-    std::string to_string() { return node_ptr->to_string(); }
+    DECL_ACCESSOR_PROXY_S(SetName, GetName, std::string, node_ptr, Name)
+    DECL_ACCESSOR_PROXY_S(SetOp, GetOp, std::string, node_ptr, Op)
+    DECL_ACCESSOR_PROXY_S(SetInputs, GetInputs, std::vector<std::string>, node_ptr, Inputs)
+    DECL_ACCESSOR_PROXY_S(SetOutputs, GetOutputs, std::vector<std::string>, node_ptr, Outputs)
+    DECL_ACCESSOR_PROXY_S(SetAttrs, GetAttrs, ALL(std::map<std::string, std::string>), node_ptr, Attrs)
+    DECL_ACCESSOR_PROXY_S(SetStartTime, GetStartTime, int64_t, node_ptr, StartTime)
+    DECL_ACCESSOR_PROXY_S(SetEndTime, GetEndTime, int64_t, node_ptr, EndTime)
+    DECL_ACCESSOR_PROXY_S(SetComputeCost, GetComputeCost, int64_t, node_ptr, ComputeCost)
+    DECL_ACCESSOR_PROXY_S(SetTemporaryMemory, GetTemporaryMemory, int64_t, node_ptr, TemporaryMemory)
+    DECL_ACCESSOR_PROXY_S(SetPersistentMemory, GetPersistentMemory, int64_t, node_ptr, PersistentMemory)
+    DECL_ACCESSOR_PROXY_S(SetInputMemory, GetInputMemory, int64_t, node_ptr, InputMemory)
+    DECL_ACCESSOR_PROXY_S(SetOutputMemory, GetOutputMemory, int64_t, node_ptr, OutputMemory)
+    void AddInput(const std::string& input) { node_ptr->AddInput(std::move(input)); }
+    void AddOutput(const std::string& output) { node_ptr->AddOutput(std::move(output)); }
+    std::string ToString() { return node_ptr->ToString(); }
 };
 class Graph {
    private:
@@ -49,25 +45,20 @@ class Graph {
     Graph() { graph_ptr = new framework::Graph(); }
     ~Graph() { delete graph_ptr; }
     framework::Graph* GraphPtr() { return graph_ptr; }
-    void add_node(Node& node) {
+    void AddNode(Node& node) {
         framework::NodeBase node_base(node.NodePtr());
-        graph_ptr->get_node_map().insert(
-            std::pair<std::string, NodeBase&>(node_base.get_name(), node_base));
-        graph_ptr->get_nodes().push_back(node_base);
+        graph_ptr->NodeMap().insert(std::pair<std::string, NodeBase&>(node_base.Name(), node_base));
+        graph_ptr->Nodes().push_back(node_base);
     }
-    void add_node(int at, Node& node) {
+    void AddNode(int at, Node& node) {
         framework::NodeBase node_base(node.NodePtr());
-        graph_ptr->get_node_map().insert(
-            std::pair<std::string, NodeBase&>(node_base.get_name(), node_base));
-        graph_ptr->get_nodes().insert(graph_ptr->get_nodes().begin() + at,
-                                      node_base);
+        graph_ptr->NodeMap().insert(std::pair<std::string, NodeBase&>(node_base.Name(), node_base));
+        graph_ptr->Nodes().insert(graph_ptr->Nodes().begin() + at, node_base);
     }
 
-    Node get_node(int at) { return Node(&graph_ptr->get_nodes().at(at)); }
-    Node get_node(const std::string& name) {
-        return Node(&graph_ptr->get_node_map().find(name)->second);
-    }
-    std::string to_string() { return graph_ptr->to_string(); }
+    Node GetNode(int at) { return Node(&graph_ptr->Nodes().at(at)); }
+    Node GetNode(const std::string& name) { return Node(&graph_ptr->NodeMap().find(name)->second); }
+    std::string ToString() { return graph_ptr->ToString(); }
 };
 };  // namespace framework::py
 
@@ -85,41 +76,35 @@ PYBIND11_MODULE(PYBIND11_CURRENT_MODULE_NAME, m) {
         .def(py::init())
         .def(py::init([](std::string name, std::string op) {
             auto n = std::make_unique<PyNode>();
-            n->set_name(std::move(name));
-            n->set_op(std::move(op));
+            n->SetName(std::move(name));
+            n->SetOp(std::move(op));
             return n;
         }))
-        .def_property("name", &PyNode::get_name, &PyNode::set_name)
-        .def_property("op", &PyNode::get_op, &PyNode::set_op)
-        .def_property("inputs", &PyNode::get_inputs, &PyNode::set_inputs)
-        .def_property("outputs", &PyNode::get_outputs, &PyNode::set_outputs)
-        .def_property("attrs", &PyNode::get_attrs, &PyNode::set_attrs)
-        .def_property("start_time", &PyNode::get_start_time,
-                      &PyNode::set_start_time)
-        .def_property("end_time", &PyNode::get_end_time, &PyNode::set_end_time)
-        .def_property("compute_cost", &PyNode::get_compute_cost,
-                      &PyNode::set_compute_cost)
-        .def_property("temporary_memory", &PyNode::get_temporary_memory,
-                      &PyNode::set_temporary_memory)
-        .def_property("persistent_memory", &PyNode::get_persistent_memory,
-                      &PyNode::set_persistent_memory)
-        .def_property("input_memory", &PyNode::get_input_memory,
-                      &PyNode::set_input_memory)
-        .def_property("output_memory", &PyNode::get_output_memory,
-                      &PyNode::set_output_memory)
-        .def("add_input", &PyNode::add_input)
-        .def("add_output", &PyNode::add_output)
-        .def("__repr__", &PyNode::to_string)
-        .def("__str__", &PyNode::to_string);
+        .def_property("name", &PyNode::GetName, &PyNode::SetName)
+        // .def_property("name", &PyNode::Name, &PyNode::Name)
+        .def_property("op", &PyNode::GetOp, &PyNode::SetOp)
+        .def_property("inputs", &PyNode::GetInputs, &PyNode::SetInputs)
+        .def_property("outputs", &PyNode::GetOutputs, &PyNode::SetOutputs)
+        .def_property("attrs", &PyNode::GetAttrs, &PyNode::SetAttrs)
+        .def_property("start_time", &PyNode::GetStartTime, &PyNode::SetStartTime)
+        .def_property("end_time", &PyNode::GetEndTime, &PyNode::SetEndTime)
+        .def_property("compute_cost", &PyNode::GetComputeCost, &PyNode::SetComputeCost)
+        .def_property("temporary_memory", &PyNode::GetTemporaryMemory, &PyNode::SetTemporaryMemory)
+        .def_property("persistent_memory", &PyNode::GetPersistentMemory, &PyNode::SetPersistentMemory)
+        .def_property("input_memory", &PyNode::GetInputMemory, &PyNode::SetInputMemory)
+        .def_property("output_memory", &PyNode::GetOutputMemory, &PyNode::SetOutputMemory)
+        .def("add_input", &PyNode::AddInput)
+        .def("add_output", &PyNode::AddOutput)
+        .def("__repr__", &PyNode::ToString)
+        .def("__str__", &PyNode::ToString);
     py::class_<PyGraph>(m, "Graph")
         .def(py::init())
-        .def("add_node", py::overload_cast<PyNode&>(&PyGraph::add_node))
-        .def("add_node", py::overload_cast<int, PyNode&>(&PyGraph::add_node))
-        .def("get_node", py::overload_cast<int>(&PyGraph::get_node))
-        .def("get_node",
-             py::overload_cast<const std::string&>(&PyGraph::get_node))
-        .def("__repr__", &PyGraph::to_string)
-        .def("__str__", &PyGraph::to_string);
+        .def("add_node", py::overload_cast<PyNode&>(&PyGraph::AddNode))
+        .def("add_node", py::overload_cast<int, PyNode&>(&PyGraph::AddNode))
+        .def("get_node", py::overload_cast<int>(&PyGraph::GetNode))
+        .def("get_node", py::overload_cast<const std::string&>(&PyGraph::GetNode))
+        .def("__repr__", &PyGraph::ToString)
+        .def("__str__", &PyGraph::ToString);
 
 #ifdef VERSION_INFO
     m.attr("__version__") = MACRO_STRINGIFY(VERSION_INFO);

@@ -17,29 +17,23 @@ class Graph {
    public:
     Graph() = default;
     virtual ~Graph() = default;
-    GEN_ACCESSOR_IN_DEC(std::vector<NodeBase>, nodes)
-    GEN_ACCESSOR_IN_DEC(ALL(std::map<std::string, NodeBase&>), node_map)
-    void add_node(NodeBase node) {
-        node_map.insert(
-            std::pair<std::string, NodeBase&>(node.get_name(), node));
+    DECL_ACCESSOR(Nodes, Nodes, std::vector<NodeBase>, nodes, true)
+    DECL_ACCESSOR(NodeMap, NodeMap, ALL(std::map<std::string, NodeBase&>), node_map, true)
+    void AddNode(NodeBase node) {
+        node_map.insert(std::pair<std::string, NodeBase&>(node.Name(), node));
         nodes.push_back(node);
     }
-    void add_node(int at, NodeBase node) {
-        node_map.insert(
-            std::pair<std::string, NodeBase&>(node.get_name(), node));
+    void AddNode(int at, NodeBase node) {
+        node_map.insert(std::pair<std::string, NodeBase&>(node.Name(), node));
         nodes.insert(nodes.begin() + at, node);
     }
 
-    NodeBase& get_node(int at) { return nodes.at(at); }
-    NodeBase& get_node(const std::string& name) {
-        return node_map.find(name)->second;
-    }
-    std::string to_string() {
+    NodeBase& GetNode(int at) { return nodes.at(at); }
+    NodeBase& GetNode(const std::string& name) { return node_map.find(name)->second; }
+    std::string ToString() {
         // return "";
         return std::accumulate(nodes.begin(), nodes.end(), std::string(),
-                               [](const std::string& s, NodeBase& p) {
-                                   return s + "\n" + p.to_string();
-                               });
+                               [](const std::string& s, NodeBase& p) { return s + "\n" + p.ToString(); });
     }
 };
 

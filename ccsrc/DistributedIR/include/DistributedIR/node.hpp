@@ -45,42 +45,37 @@ class NodeBase {
           input_memory(node->input_memory),
           output_memory(node->output_memory) {}
     virtual ~NodeBase() = default;
-    GEN_ACCESSOR_IN_DEC(std::string, name)
-    GEN_ACCESSOR_IN_DEC(std::string, op)
-    GEN_ACCESSOR_IN_DEC(std::string, device)
-    GEN_ACCESSOR_IN_DEC(std::vector<std::string>, inputs)
-    GEN_ACCESSOR_IN_DEC(std::vector<std::string>, outputs)
-    GEN_ACCESSOR_IN_DEC(ALL(std::map<std::string, std::string>), attrs)
-    GEN_ACCESSOR_IN_DEC(int64_t, start_time)
-    GEN_ACCESSOR_IN_DEC(int64_t, end_time)
-    GEN_ACCESSOR_IN_DEC(int64_t, compute_cost)
-    GEN_ACCESSOR_IN_DEC(int64_t, temporary_memory)
-    GEN_ACCESSOR_IN_DEC(int64_t, persistent_memory)
-    GEN_ACCESSOR_IN_DEC(int64_t, input_memory)
-    GEN_ACCESSOR_IN_DEC(int64_t, output_memory)
-    // // GEN_ACCESSOR_IN_DEC(T, data)
-    void add_input(const std::string& input) { inputs.push_back(input); }
-    void add_output(const std::string& output) { outputs.push_back(output); }
-    std::string to_string() {
+    DECL_ACCESSOR(Name, Name, std::string, name, true)
+    DECL_ACCESSOR(Op, Op, std::string, op, true)
+    DECL_ACCESSOR(Device, Device, std::string, device, true)
+    DECL_ACCESSOR(Inputs, Inputs, std::vector<std::string>, inputs, true)
+    DECL_ACCESSOR(Outputs, Outputs, std::vector<std::string>, outputs, true)
+    DECL_ACCESSOR(Attrs, Attrs, ALL(std::map<std::string, std::string>), attrs, true)
+    DECL_ACCESSOR(StartTime, StartTime, int64_t, start_time, true)
+    DECL_ACCESSOR(EndTime, EndTime, int64_t, end_time, true)
+    DECL_ACCESSOR(ComputeCost, ComputeCost, int64_t, compute_cost, true)
+    DECL_ACCESSOR(TemporaryMemory, TemporaryMemory, int64_t, temporary_memory, true)
+    DECL_ACCESSOR(PersistentMemory, PersistentMemory, int64_t, persistent_memory, true)
+    DECL_ACCESSOR(InputMemory, InputMemory, int64_t, input_memory, true)
+    DECL_ACCESSOR(OutputMemory, OutputMemory, int64_t, output_memory, true)
+    // // DECL_ACCESSOR(T, data)
+    void AddInput(const std::string& input) { inputs.push_back(input); }
+    void AddOutput(const std::string& output) { outputs.push_back(output); }
+    std::string ToString() {
         std::stringstream ss;
         ss << "name:" << name << std::endl;
         ss << "op:" << op << std::endl;
         ss << "inputs: "
-           << std::accumulate(inputs.begin(), inputs.end(), std::string(),
-                              [](const std::string& s, const std::string& p) {
-                                  return s +
-                                         (s.empty() ? std::string() : ", ") + p;
-                              })
+           << std::accumulate(
+                  inputs.begin(), inputs.end(), std::string(),
+                  [](const std::string& s, const std::string& p) { return s + (s.empty() ? std::string() : ", ") + p; })
            << std::endl;
         ss << "device: " << device << std::endl;
         ss << "attrs: "
-           << std::accumulate(
-                  attrs.begin(), attrs.end(), std::string(),
-                  [](const std::string& s,
-                     const std::pair<const std::string, std::string>& p) {
-                      return s + (s.empty() ? std::string() : "\n") + p.first +
-                             ": " + p.second;
-                  })
+           << std::accumulate(attrs.begin(), attrs.end(), std::string(),
+                              [](const std::string& s, const std::pair<const std::string, std::string>& p) {
+                                  return s + (s.empty() ? std::string() : "\n") + p.first + ": " + p.second;
+                              })
            << std::endl;
         return ss.str();
     }
@@ -96,7 +91,7 @@ class MergedNode : public NodeBase {
 
 //  public:
 //   T data;
-//   GEN_ACCESSOR_IN_DEC(T, data)
+//   DECL_ACCESSOR(T, data)
 // };
 // template <>
 // class Node<void> : public NodeBase {

@@ -25,9 +25,7 @@ struct EdgePort {
     int index;
     Edge<TT>* edge = nullptr;
     EdgePort(TT* entity, int index) : entity(entity), index(index) {}
-    bool operator==(const EdgePort<T> port) const {
-        return *entity == *port.entity && this->index == port.index;
-    }
+    bool operator==(const EdgePort<T> port) const { return *entity == *port.entity && this->index == port.index; }
 
     EdgePort<TT> operator|(const Edge<TT>& edge) {
         this->edge = &edge;
@@ -64,17 +62,14 @@ template <>
 struct EdgePort<std::string> {
     std::string entity;
     explicit EdgePort(std::string entity) : entity(std::move(entity)) {}
-    bool operator==(const EdgePort<std::string>& port) const {
-        return this->entity == port.entity;
-    }
+    bool operator==(const EdgePort<std::string>& port) const { return this->entity == port.entity; }
 };
 
 template <typename T>
 struct Edge {
     using TT = typename std::remove_reference<T>::type;
     Edge(TT* start, int start_index, TT* end, int end_index)
-        : start(EdgePort<TT>(start, start_index)),
-          end(EdgePort<TT>(end, end_index)) {
+        : start(EdgePort<TT>(start, start_index)), end(EdgePort<TT>(end, end_index)) {
         this->start | this;
         this->end | this;
     }
@@ -87,19 +82,16 @@ struct Edge {
 };
 
 struct HasInternalEdge {
-    virtual void Connect(int start_item, int start_out_index, int end_item,
-                         int end_arg_index) = 0;
+    virtual void Connect(int start_item, int start_out_index, int end_item, int end_arg_index) = 0;
 };
 
 template <typename T>
 struct HasEdgePort {
     virtual void BuildInputPorts() = 0;
     virtual void BuildOutputPorts() = 0;
-    void BuildSeclectedPorts(
-        const std::function<uint64_t(const T&)>& searchPortSize,
-        const std::function<EdgePort<T>(Edge<T>&)>& getEdgePort,
-        std::vector<T>& internelEles, std::vector<Edge<T>>& edges,
-        std::vector<EdgePort<T>>& out) {
+    void BuildSeclectedPorts(const std::function<uint64_t(const T&)>& searchPortSize,
+                             const std::function<EdgePort<T>(Edge<T>&)>& getEdgePort, std::vector<T>& internelEles,
+                             std::vector<Edge<T>>& edges, std::vector<EdgePort<T>>& out) {
         std::vector<EdgePort<T>> result;
         for (auto ele : internelEles) {
             for (size_t i = 0; i < searchPortSize(ele); i++) {
@@ -130,19 +122,13 @@ struct HasEdgePort {
 class Block {
    public:
     Block(std::string id, std::string device, SubGraph graph)
-        : id(std::move(id)),
-          device(std::move(device)),
-          graph(std::move(graph)) {}
+        : id(std::move(id)), device(std::move(device)), graph(std::move(graph)) {}
     virtual ~Block() = default;
 
-    void AddInputPort(const EdgePort<std::string>& port) {
-        inputs.push_back(port);
-    }
-    void AddOutputPort(const EdgePort<std::string>& port) {
-        outputs.push_back(port);
-    }
-    GEN_ACCESSOR_IN_DEC(ALL(std::vector<EdgePort<std::string>>), inputs)
-    GEN_ACCESSOR_IN_DEC(ALL(std::vector<EdgePort<std::string>>), outputs)
+    void AddInputPort(const EdgePort<std::string>& port) { inputs.push_back(port); }
+    void AddOutputPort(const EdgePort<std::string>& port) { outputs.push_back(port); }
+    DECL_ACCESSOR(Inputs, Inputs, ALL(std::vector<EdgePort<std::string>>), inputs, true)
+    DECL_ACCESSOR(Outputs, Outputs, ALL(std::vector<EdgePort<std::string>>), outputs, true)
 
     bool operator==(const Block& block) const { return id == block.id; }
 
@@ -158,17 +144,16 @@ class DeviceGraph : public HasInternalEdge, public HasEdgePort<Block> {
    public:
     explicit DeviceGraph(std::string id) : id(std::move(id)){};
     virtual ~DeviceGraph() = default;
-    GEN_ACCESSOR_IN_DEC(std::vector<EdgePort<Block>>, inputs)
-    GEN_ACCESSOR_IN_DEC(std::vector<EdgePort<Block>>, outputs)
+    DECL_ACCESSOR(Inputs, Inputs, std::vector<EdgePort<Block>>, inputs, true)
+    DECL_ACCESSOR(Outputs, Outputs, std::vector<EdgePort<Block>>, outputs, true)
     void AddBlock(const Block& block) { blocks.emplace_back(block); }
-    void Connect(int start_item, int start_out_index, int end_item,
-                 int end_arg_index) override;
+    void Connect(int start_item, int start_out_index, int end_item, int end_arg_index) override;
 
     void BuildInputPorts() override {
         BuildSeclectedPorts(
             [](auto b) {
                 // search outputs
-                return b.get_inputs().size();
+                return b.Inputs().size();
             },
             [](auto e) {
                 // input edge port must be a edge end
@@ -180,7 +165,7 @@ class DeviceGraph : public HasInternalEdge, public HasEdgePort<Block> {
         BuildSeclectedPorts(
             [](auto b) {
                 // search outputs
-                return b.get_outputs().size();
+                return b.Outputs().size();
             },
             [](auto e) {
                 // output edge port must be a edge start
@@ -205,19 +190,16 @@ class ServerGraph : public HasInternalEdge, public HasEdgePort<DeviceGraph> {
    public:
     explicit ServerGraph(std::string id) : id(std::move(id)){};
     virtual ~ServerGraph() = default;
-    GEN_ACCESSOR_IN_DEC(std::vector<EdgePort<DeviceGraph>>, inputs)
-    GEN_ACCESSOR_IN_DEC(std::vector<EdgePort<DeviceGraph>>, outputs)
+    DECL_ACCESSOR(Inputs, Inputs, std::vector<EdgePort<DeviceGraph>>, inputs, true)
+    DECL_ACCESSOR(Outputs, Outputs, std::vector<EdgePort<DeviceGraph>>, outputs, true)
 
-    void AddDeviceGraph(const DeviceGraph& graph) {
-        device_graphs.emplace_back(graph);
-    }
-    void Connect(int start_item, int start_out_index, int end_item,
-                 int end_arg_index) override;
+    void AddDeviceGraph(const DeviceGraph& graph) { device_graphs.emplace_back(graph); }
+    void Connect(int start_item, int start_out_index, int end_item, int end_arg_index) override;
     void BuildInputPorts() override {
         BuildSeclectedPorts(
             [](auto b) {
                 // search outputs
-                return b.get_inputs().size();
+                return b.Inputs().size();
             },
             [](auto e) {
                 // input edge port must be a edge end
@@ -229,7 +211,7 @@ class ServerGraph : public HasInternalEdge, public HasEdgePort<DeviceGraph> {
         BuildSeclectedPorts(
             [](auto b) {
                 // search outputs
-                return b.get_outputs().size();
+                return b.Outputs().size();
             },
             [](auto e) {
                 return
@@ -254,16 +236,13 @@ class ClusterGraph : public HasInternalEdge, public HasEdgePort<ServerGraph> {
    public:
     explicit ClusterGraph(std::string id) : id(std::move(id)){};
     virtual ~ClusterGraph() = default;
-    void AddServerGraph(const ServerGraph& graph) {
-        server_graphs.emplace_back(graph);
-    }
-    void Connect(int start_item, int start_out_index, int end_item,
-                 int end_arg_index) override;
+    void AddServerGraph(const ServerGraph& graph) { server_graphs.emplace_back(graph); }
+    void Connect(int start_item, int start_out_index, int end_item, int end_arg_index) override;
     void BuildInputPorts() override {
         BuildSeclectedPorts(
             [](auto b) {
                 // search outputs
-                return b.get_inputs().size();
+                return b.Inputs().size();
             },
             [](auto e) {
                 return
@@ -276,7 +255,7 @@ class ClusterGraph : public HasInternalEdge, public HasEdgePort<ServerGraph> {
         BuildSeclectedPorts(
             [](auto b) {
                 // search outputs
-                return b.get_outputs().size();
+                return b.Outputs().size();
             },
             [](auto e) {
                 // output edge port must be a edge start

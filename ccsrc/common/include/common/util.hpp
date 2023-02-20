@@ -2,50 +2,81 @@
 #define FRAMEWORK_UTIL_H
 
 #define ALL(...) __VA_ARGS__
-#ifndef GEN_SETTER
-#define GEN_SETTER(cName, fType, fName) \
-    inline void cName::set##_##fName(fType fName) { this->fName = fName; }
-#endif /* ifndef GEN_SETTER(cName, fName, fType) */
 
-#ifndef GEN_SETTER_IN_DEC
-#define GEN_SETTER_IN_DEC(fType, fName) \
-    inline void set##_##fName(fType fName) { this->fName = std::move(fName); }
-#endif /* ifndef GEN_SETTER(cName, fName, fType) */
-
-#ifndef GEN_GETTER_IN_DEC
-#define GEN_GETTER_IN_DEC(fType, fName) \
-    inline fType& get##_##fName() { return fName; }
-
-#endif /* ifndef GEN_GETTER_IN_DEC */
-
-#ifndef GEN_ACCESSOR_IN_DEC
-#define GEN_ACCESSOR_IN_DEC(fType, fName) \
-    GEN_SETTER_IN_DEC(ALL(fType), fName)  \
-    GEN_GETTER_IN_DEC(ALL(fType), fName)
-#endif /* ifndef GEN_ACCESSOR_IN_DEC(fType, fName) \
-        */
-
-#ifndef GEN_PROXY_SETTER
-#define GEN_PROXY_SETTER(fType, Proxy, fName)         \
-    inline void set##_##fName(fType fName) {          \
-        this->Proxy->set##_##fName(std::move(fName)); \
+#ifndef DECL_SETTER
+#define DECL_SETTER(SetterName, Type, fieldName, MOVE) \
+    /* NOLINTNEXTLINE */                               \
+    inline void SetterName(Type && (fieldName)) {      \
+        if constexpr (MOVE) {                          \
+            this->fieldName = std::move(fieldName);    \
+        } else {                                       \
+            this->fieldName = fieldName;               \
+        }                                              \
     }
-#endif /* ifndef GEN_PROXY_SETTER(cName, fName, fType) */
+#endif
 
-#ifndef GEN_PROXY_GETTER
-#define GEN_PROXY_GETTER(fType, Proxy, fName) \
-    inline fType& get##_##fName() { return this->Proxy->get##_##fName(); }
-#endif /* ifndef GEN_PROXY_GETTER */
+#ifndef DECL_SETTER_M
+#define DECL_SETTER_M(SetterName, Type, fieldName) \
+    /* NOLINTNEXTLINE */                           \
+    inline void SetterName(Type&(fieldName)) { this->fieldName = std::move(fieldName); }
+#endif
 
-#ifndef GEN_PROXY_ACCESSOR
-#define GEN_PROXY_ACCESSOR(fType, Proxy, fName) \
-    GEN_PROXY_SETTER(ALL(fType), Proxy, fName)  \
-    GEN_PROXY_GETTER(ALL(fType), Proxy, fName)
-#endif /* ifndef GEN_PROXY_ACCESSOR(fType, fName) \
-        */
+#ifndef DECL_GETTER
+#define DECL_GETTER(GetterName, Type, fieldName) \
+    inline Type& GetterName() { return fieldName; }
+#endif
 
-#define FRAMEWORK_STATUS_MACROS_CONCAT_NAME(x, y) \
-    FRAMEWORK_STATUS_MACROS_CONCAT_IMPL(x, y)
+#ifndef DECL_ACCESSOR
+#define DECL_ACCESSOR(GetterName, SetterName, Type, fName, MOVE) \
+    DECL_SETTER(SetterName, ALL(Type), fName, MOVE)              \
+    DECL_GETTER(GetterName, ALL(Type), fName)
+#endif
+
+// #ifndef DECL_ACCESSOR_M
+// #define DECL_ACCESSOR_M(GetterName, SetterName, Type, fName) \
+//     DECL_SETTER_M(SetterName, ALL(Type), fName)  \
+//     DECL_GETTER(GetterName, ALL(Type), fName)
+// #endif
+
+#ifndef DECL_SETTER_PROXY
+#define DECL_SETTER_PROXY(SetterName, Type, Proxy, ProxySetterName)     \
+    /* NOLINTNEXTLINE */                                                \
+    inline void SetterName(Type&& _set_value) {                         \
+        /* NOLINTNEXTLINE */                                            \
+        this->Proxy->ProxySetterName(std::forward<Type&&>(_set_value)); \
+    }
+#endif /* ifndef DECL_SETTER_PROXY(cName, fName, fType) */
+
+#ifndef DECL_GETTER_PROXY
+#define DECL_GETTER_PROXY(GetterName, Type, Proxy, ProxyGetterName) \
+    inline Type& GetterName() { return this->Proxy->ProxyGetterName(); }
+#endif /* ifndef DECL_GETTER_PROXY */
+
+#ifndef DECL_ACCESSOR_PROXY
+#define DECL_ACCESSOR_PROXY(SetterName, GetterName, Type, Proxy, ProxySetterName, ProxyGetterName) \
+    DECL_SETTER_PROXY(SetterName, ALL(Type), Proxy, ProxySetterName)                               \
+    DECL_GETTER_PROXY(GetterName, ALL(Type), Proxy, ProxyGetterName)
+#endif
+
+#ifndef DECL_ACCESSOR_PROXY_S
+#define DECL_ACCESSOR_PROXY_S(SetterName, GetterName, Type, Proxy, ProxySetterGetterName) \
+    DECL_SETTER_PROXY(SetterName, ALL(Type), Proxy, ProxySetterGetterName)                \
+    DECL_GETTER_PROXY(GetterName, ALL(Type), Proxy, ProxySetterGetterName)
+#endif
+
+#ifndef DECL_ACCESSOR_PROXY_SS
+#define DECL_ACCESSOR_PROXY_SS(SetterGetterName, Type, Proxy, ProxySetterGetterName) \
+    DECL_SETTER_PROXY(SetterGetterName, ALL(Type), Proxy, ProxySetterGetterName)     \
+    DECL_GETTER_PROXY(SetterGetterName, ALL(Type), Proxy, ProxySetterGetterName)
+#endif
+
+#ifndef DECL_ACCESSOR_PROXY_SSS
+#define DECL_ACCESSOR_PROXY_SSS(SetterGetterName, Type, Proxy, MOVE)          \
+    DECL_SETTER_PROXY(SetterGetterName, ALL(Type), Proxy, SetterGetterName, ) \
+    DECL_GETTER_PROXY(SetterGetterName, ALL(Type), Proxy, SetterGetterName)
+#endif
+
+#define FRAMEWORK_STATUS_MACROS_CONCAT_NAME(x, y) FRAMEWORK_STATUS_MACROS_CONCAT_IMPL(x, y)
 #define FRAMEWORK_STATUS_MACROS_CONCAT_IMPL(x, y) x##y
 #define FRAMEWORK_ASSIGN_OR_RETURN_IMPL(statusor, lhs, rexpr) \
     auto(statusor) = (rexpr);                                 \
@@ -54,10 +85,8 @@
     }                                                         \
     (lhs) = std::move((statusor).unwrap())
 
-#define FRAMEWORK_ASSIGN_OR_RETURN(lhs, rexpr)                              \
-    FRAMEWORK_ASSIGN_OR_RETURN_IMPL(                                        \
-        FRAMEWORK_STATUS_MACROS_CONCAT_NAME(_status_or_value, __COUNTER__), \
-        lhs, rexpr)
+#define FRAMEWORK_ASSIGN_OR_RETURN(lhs, rexpr) \
+    FRAMEWORK_ASSIGN_OR_RETURN_IMPL(FRAMEWORK_STATUS_MACROS_CONCAT_NAME(_status_or_value, __COUNTER__), lhs, rexpr)
 
 #define FRAMEWORK_RETURN_IF_ERROR(...)  \
     do {                                \
