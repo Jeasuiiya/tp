@@ -1,8 +1,16 @@
 #!/usr/bin/env bash
 
 if [ $# -eq 0 ]; then
-    echo "usage: format-cc [DIR]"
+    echo "usage: format-cc [DIR] [FLAGS]"
     exit
 fi
 
-find $1 -name *.cc -o -name *.hpp -o -name *.cpp -name *.h -o -name *.hh | xargs clang-format -i
+if [ -n "$CLANG_PATH" ]; then
+    PATH=$CLANG_PATH:$PATH
+fi
+
+FLAGS="-i"
+if [ -n "$2" ]; then
+    FLAGS=$2
+fi
+find $1 -name *.cc -o -name *.hpp -o -name *.cpp -name *.h -o -name *.hh | xargs clang-format $FLAGS

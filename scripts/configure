@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+
+# require cmake 3.22 or higher
+# require ninja
+# require python 3.7 or higher
+
+configure() {
+    BUILD_DIR="build"
+    if [ -n "$1" ]; then
+        BUILD_DIR=$1
+    fi
+    cmake -S. -B $BUILD_DIR \
+        -DPYTHON_EXECUTABLE=$(python3 -c "import sys; print(sys.executable)") \
+        -DCMAKE_BUILD_TYPE=Debug \
+        -DCPM_SOURCE_CACHE=$HOME/.cache/cpm \
+        -G Ninja
+}
+

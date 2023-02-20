@@ -1,14 +1,15 @@
+# require CPM
+include(CPM)
 
-# require FetchContent
-include(FetchContent)
-
+# fetch_gtest
 function(fetch_gtest)
-    FetchContent_Declare(
-    googletest
-    URL https://github.com/google/googletest/archive/03597a01ee50ed33e9dfd640b249b4be3799d395.zip
-    )
-    # For Windows: Prevent overriding the parent project's compiler/linker settings
-    set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
-    FetchContent_MakeAvailable(googletest)
+  # For Windows: Prevent overriding the parent project's compiler/linker settings
+  # cmake-lint: disable=C0103
+  set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+  CPMAddPackage(
+    NAME googletest
+    GITHUB_REPOSITORY google/googletest
+    GIT_TAG release-1.12.1
+    GIT_SHALLOW ON
+    EXCLUDE_FROM_ALL ON)
 endfunction(fetch_gtest)
-

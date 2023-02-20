@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 // #include "add.h"
+#include "DistributedIR/op.hpp"
 
 // Demonstrate some basic assertions.
 TEST(TestExample, BasicAssertions) {

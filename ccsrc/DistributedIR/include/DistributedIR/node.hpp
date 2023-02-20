@@ -1,5 +1,5 @@
-#ifndef _FRAMEWORK_GRAPH_NODE_H
-#define _FRAMEWORK_GRAPH_NODE_H
+#ifndef FRAMEWORK_GRAPH_NODE_H
+#define FRAMEWORK_GRAPH_NODE_H
 
 #include <map>
 #include <numeric>
@@ -8,29 +8,29 @@
 #include <utility>
 #include <vector>
 
-#include "util.hpp"
+#include "common/util.hpp"
 namespace framework {
 
 class NodeBase {
    private:
-    std::string name;                 //节点名
-    std::string op;                   //算子名
+    std::string name;                 // 节点名
+    std::string op;                   // 算子名
     std::vector<std::string> inputs;  // 节点输入
     std::vector<std::string> outputs;
-    std::string device;                        //该节点的计算设备
-    std::map<std::string, std::string> attrs;  //节点属性
-    long start_time;                           //开始时间
-    long end_time;                             //结束时间
-    long compute_cost;                         //计算代价
-    long temporary_memory;                     //临时内存
-    long persistent_memory;                    //持久内存
-    long input_memory;                         //输入内存
-    long output_memory;                        //输出内存
+    std::string device;                        // 该节点的计算设备
+    std::map<std::string, std::string> attrs;  // 节点属性
+    int64_t start_time;                        // 开始时间
+    int64_t end_time;                          // 结束时间
+    int64_t compute_cost;                      // 计算代价
+    int64_t temporary_memory;                  // 临时内存
+    int64_t persistent_memory;                 // 持久内存
+    int64_t input_memory;                      // 输入内存
+    int64_t output_memory;                     // 输出内存
 
     // T data;
    public:
-    NodeBase() {}
-    NodeBase(NodeBase* node)
+    NodeBase() = default;
+    explicit NodeBase(NodeBase* node)
         : name(node->name),
           op(node->op),
           inputs(node->inputs),
@@ -44,23 +44,23 @@ class NodeBase {
           persistent_memory(node->persistent_memory),
           input_memory(node->input_memory),
           output_memory(node->output_memory) {}
-    virtual ~NodeBase() {}
+    virtual ~NodeBase() = default;
     GEN_ACCESSOR_IN_DEC(std::string, name)
     GEN_ACCESSOR_IN_DEC(std::string, op)
     GEN_ACCESSOR_IN_DEC(std::string, device)
     GEN_ACCESSOR_IN_DEC(std::vector<std::string>, inputs)
     GEN_ACCESSOR_IN_DEC(std::vector<std::string>, outputs)
     GEN_ACCESSOR_IN_DEC(ALL(std::map<std::string, std::string>), attrs)
-    GEN_ACCESSOR_IN_DEC(long, start_time)
-    GEN_ACCESSOR_IN_DEC(long, end_time)
-    GEN_ACCESSOR_IN_DEC(long, compute_cost)
-    GEN_ACCESSOR_IN_DEC(long, temporary_memory)
-    GEN_ACCESSOR_IN_DEC(long, persistent_memory)
-    GEN_ACCESSOR_IN_DEC(long, input_memory)
-    GEN_ACCESSOR_IN_DEC(long, output_memory)
+    GEN_ACCESSOR_IN_DEC(int64_t, start_time)
+    GEN_ACCESSOR_IN_DEC(int64_t, end_time)
+    GEN_ACCESSOR_IN_DEC(int64_t, compute_cost)
+    GEN_ACCESSOR_IN_DEC(int64_t, temporary_memory)
+    GEN_ACCESSOR_IN_DEC(int64_t, persistent_memory)
+    GEN_ACCESSOR_IN_DEC(int64_t, input_memory)
+    GEN_ACCESSOR_IN_DEC(int64_t, output_memory)
     // // GEN_ACCESSOR_IN_DEC(T, data)
-    void add_input(std::string input) { inputs.push_back(input); }
-    void add_output(std::string output) { outputs.push_back(output); }
+    void add_input(const std::string& input) { inputs.push_back(input); }
+    void add_output(const std::string& output) { outputs.push_back(output); }
     std::string to_string() {
         std::stringstream ss;
         ss << "name:" << name << std::endl;
@@ -87,7 +87,7 @@ class NodeBase {
 };
 
 class MergedNode : public NodeBase {
-    std::vector<NodeBase> merged_nodes;  //已合并节点
+    std::vector<NodeBase> merged_nodes;  // 已合并节点
 };
 
 // template <typename T>

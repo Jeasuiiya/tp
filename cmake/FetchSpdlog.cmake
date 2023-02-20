@@ -1,13 +1,12 @@
+# require CPM
+include(CPM)
 
-# require FetchContent
-include(FetchContent)
-
+# fetch_spdlog
 function(fetch_spdlog)
-    FetchContent_Declare(
-    spdlog
-    URL https://github.com/gabime/spdlog/archive/refs/tags/v1.11.0.zip
-    )
-    # For Windows: Prevent overriding the parent project's compiler/linker settings
-    FetchContent_MakeAvailable(spdlog)
+  CPMAddPackage(
+    NAME spdlog
+    GITHUB_REPOSITORY gabime/spdlog
+    GIT_TAG v1.11.0
+    GIT_SHALLOW ON
+    EXCLUDE_FROM_ALL ON)
 endfunction(fetch_spdlog)
-

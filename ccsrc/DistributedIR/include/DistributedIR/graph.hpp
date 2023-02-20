@@ -1,12 +1,12 @@
-#ifndef _FRAMEWORK_GRAPH_GRAPH_H
-#define _FRAMEWORK_GRAPH_GRAPH_H
+#ifndef FRAMEWORK_GRAPH_GRAPH_H
+#define FRAMEWORK_GRAPH_GRAPH_H
 
 #include <numeric>
 #include <utility>
 #include <vector>
 
+#include "common/util.hpp"
 #include "node.hpp"
-#include "util.hpp"
 namespace framework {
 
 class Graph {
@@ -15,8 +15,8 @@ class Graph {
     std::map<std::string, NodeBase&> node_map;
 
    public:
-    Graph() {}
-    virtual ~Graph() {}
+    Graph() = default;
+    virtual ~Graph() = default;
     GEN_ACCESSOR_IN_DEC(std::vector<NodeBase>, nodes)
     GEN_ACCESSOR_IN_DEC(ALL(std::map<std::string, NodeBase&>), node_map)
     void add_node(NodeBase node) {
@@ -31,23 +31,25 @@ class Graph {
     }
 
     NodeBase& get_node(int at) { return nodes.at(at); }
-    NodeBase& get_node(std::string name) { return node_map.find(name)->second; }
+    NodeBase& get_node(const std::string& name) {
+        return node_map.find(name)->second;
+    }
     std::string to_string() {
         // return "";
         return std::accumulate(nodes.begin(), nodes.end(), std::string(),
-                               [](std::string s, NodeBase& p) {
+                               [](const std::string& s, NodeBase& p) {
                                    return s + "\n" + p.to_string();
                                });
     }
 };
 
 class SubGraph : public Graph {
-    std::vector<Graph> input_graphs;                          //输入图
-    std::vector<std::map<std::string, std::string>> inputs;   //各图输入
-    std::vector<Graph> output_graphs;                         //输出图
-    std::vector<std::map<std::string, std::string>> outputs;  //输出
+    std::vector<SubGraph*> input_graphs;                      // 输入图
+    std::vector<std::map<std::string, std::string>> inputs;   // 各图输入
+    std::vector<SubGraph*> output_graphs;                     // 输出图
+    std::vector<std::map<std::string, std::string>> outputs;  // 输出
 };
 
 }  // namespace framework
 
-#endif /* ifndef _GRAPH_GRAPH_H \*/
+#endif

@@ -1,5 +1,5 @@
-#ifndef _FRAMEWORK_UTIL_H
-#define _FRAMEWORK_UTIL_H
+#ifndef FRAMEWORK_UTIL_H
+#define FRAMEWORK_UTIL_H
 
 #define ALL(...) __VA_ARGS__
 #ifndef GEN_SETTER
@@ -26,9 +26,9 @@
         */
 
 #ifndef GEN_PROXY_SETTER
-#define GEN_PROXY_SETTER(fType, Proxy, fName) \
-    inline void set##_##fName(fType fName) {  \
-        this->Proxy->set##_##fName(fName);    \
+#define GEN_PROXY_SETTER(fType, Proxy, fName)         \
+    inline void set##_##fName(fType fName) {          \
+        this->Proxy->set##_##fName(std::move(fName)); \
     }
 #endif /* ifndef GEN_PROXY_SETTER(cName, fName, fType) */
 
@@ -44,21 +44,22 @@
 #endif /* ifndef GEN_PROXY_ACCESSOR(fType, fName) \
         */
 
-#define HDU_STATUS_MACROS_CONCAT_NAME(x, y) HDU_STATUS_MACROS_CONCAT_IMPL(x, y)
-#define HDU_STATUS_MACROS_CONCAT_IMPL(x, y) x##y
-#define HDU_ASSIGN_OR_RETURN_IMPL(statusor, lhs, rexpr) \
-    auto statusor = (rexpr);                            \
-    if (statusor.isErr()) {                             \
-        return Err(statusor.unwrapErr());               \
-    }                                                   \
-    lhs = std::move(statusor.unwrap())
+#define FRAMEWORK_STATUS_MACROS_CONCAT_NAME(x, y) \
+    FRAMEWORK_STATUS_MACROS_CONCAT_IMPL(x, y)
+#define FRAMEWORK_STATUS_MACROS_CONCAT_IMPL(x, y) x##y
+#define FRAMEWORK_ASSIGN_OR_RETURN_IMPL(statusor, lhs, rexpr) \
+    auto(statusor) = (rexpr);                                 \
+    if ((statusor).isErr()) {                                 \
+        return Err((statusor).unwrapErr());                   \
+    }                                                         \
+    (lhs) = std::move((statusor).unwrap())
 
-#define HDU_ASSIGN_OR_RETURN(lhs, rexpr)                                   \
-    HDU_ASSIGN_OR_RETURN_IMPL(                                             \
-        HDU_STATUS_MACROS_CONCAT_NAME(_status_or_value, __COUNTER__), lhs, \
-        rexpr)
+#define FRAMEWORK_ASSIGN_OR_RETURN(lhs, rexpr)                              \
+    FRAMEWORK_ASSIGN_OR_RETURN_IMPL(                                        \
+        FRAMEWORK_STATUS_MACROS_CONCAT_NAME(_status_or_value, __COUNTER__), \
+        lhs, rexpr)
 
-#define HDU_RETURN_IF_ERROR(...)        \
+#define FRAMEWORK_RETURN_IF_ERROR(...)  \
     do {                                \
         auto _r = (__VA_ARGS__);        \
         if (_r.isErr()) {               \
@@ -66,4 +67,4 @@
         }                               \
     } while (0)
 
-#endif /* ifndef _HDU_UTIL_H */
+#endif /* ifndef FRAMEWORK_UTIL_H */
