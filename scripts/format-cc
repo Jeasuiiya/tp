@@ -13,4 +13,4 @@ FLAGS="-i"
 if [ -n "$2" ]; then
     FLAGS=$2
 fi
-find $1 -name *.cc -o -name *.hpp -o -name *.cpp -name *.h -o -name *.hh | xargs clang-format $FLAGS
+./scripts/batch.py --regex-cc --flags="$FLAGS" ccsrc

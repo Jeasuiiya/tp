@@ -10,17 +10,29 @@
 
 namespace framework::py {
 class Node {
-   private:
+  private:
     std::shared_ptr<framework::NodeBase> node_ptr;
 
-   public:
-    explicit Node(framework::NodeBase node) { node_ptr = std::make_shared<framework::NodeBase>(node); }
-    explicit Node(std::shared_ptr<framework::NodeBase> node) { node_ptr = std::move(node); }
-    Node(Node&& node) noexcept { node_ptr = node.node_ptr; }
-    Node(Node& node) { node_ptr = node.node_ptr; }
-    Node() { node_ptr = std::make_shared<framework::NodeBase>(); }
+  public:
+    explicit Node(const framework::NodeBase& node) {
+        node_ptr = std::make_shared<framework::NodeBase>(node);
+    }
+    explicit Node(std::shared_ptr<framework::NodeBase> node) {
+        node_ptr = std::move(node);
+    }
+    Node(Node&& node) noexcept {
+        node_ptr = node.node_ptr;
+    }
+    Node(Node& node) {
+        node_ptr = node.node_ptr;
+    }
+    Node() {
+        node_ptr = std::make_shared<framework::NodeBase>();
+    }
     ~Node() = default;
-    std::shared_ptr<framework::NodeBase>& NodePtr() { return this->node_ptr; }
+    std::shared_ptr<framework::NodeBase>& NodePtr() {
+        return this->node_ptr;
+    }
     DECL_ACCESSOR_PROXY_S(SetName, GetName, std::string, node_ptr, Name)
     DECL_ACCESSOR_PROXY_S(SetOp, GetOp, std::string, node_ptr, Op)
     DECL_ACCESSOR_PROXY_S(SetInputs, GetInputs, std::vector<std::string>, node_ptr, Inputs)
@@ -33,26 +45,52 @@ class Node {
     DECL_ACCESSOR_PROXY_S(SetPersistentMemory, GetPersistentMemory, int64_t, node_ptr, PersistentMemory)
     DECL_ACCESSOR_PROXY_S(SetInputMemory, GetInputMemory, int64_t, node_ptr, InputMemory)
     DECL_ACCESSOR_PROXY_S(SetOutputMemory, GetOutputMemory, int64_t, node_ptr, OutputMemory)
-    void AddInput(const std::string& input) { node_ptr->AddInput(std::move(input)); }
-    void AddOutput(const std::string& output) { node_ptr->AddOutput(std::move(output)); }
-    std::string ToString() { return node_ptr->ToString(); }
+    void AddInput(const std::string& input) {
+        node_ptr->AddInput(std::move(input));
+    }
+    void AddOutput(const std::string& output) {
+        node_ptr->AddOutput(std::move(output));
+    }
+    std::string ToString() {
+        return node_ptr->ToString();
+    }
 };
 class Graph {
-   private:
+  private:
     framework::Graph* graph_ptr;
 
-   public:
-    explicit Graph(framework::Graph* graph) { graph_ptr = graph; }
-    Graph(Graph&& graph) noexcept { graph_ptr = graph.graph_ptr; }
-    Graph() { graph_ptr = new framework::Graph(); }
-    ~Graph() { delete graph_ptr; }
-    framework::Graph* GraphPtr() { return graph_ptr; }
-    void AddNode(Node& node) { graph_ptr->AddNode(node.NodePtr()); }
-    void AddNode(int at, Node& node) { graph_ptr->AddNode(at, node.NodePtr()); }
+  public:
+    explicit Graph(framework::Graph* graph) {
+        graph_ptr = graph;
+    }
+    Graph(Graph&& graph) noexcept {
+        graph_ptr = graph.graph_ptr;
+    }
+    Graph() {
+        graph_ptr = new framework::Graph();
+    }
+    ~Graph() {
+        delete graph_ptr;
+    }
+    framework::Graph* GraphPtr() {
+        return graph_ptr;
+    }
+    void AddNode(Node& node) {
+        graph_ptr->AddNode(node.NodePtr());
+    }
+    void AddNode(int at, Node& node) {
+        graph_ptr->AddNode(at, node.NodePtr());
+    }
 
-    Node GetNode(int at) { return Node(graph_ptr->GetNode(at)); }
-    Node GetNode(const std::string& name) { return Node(graph_ptr->GetNode(name)); }
-    std::string ToString() { return graph_ptr->ToString(); }
+    Node GetNode(int at) {
+        return Node(graph_ptr->GetNode(at));
+    }
+    Node GetNode(const std::string& name) {
+        return Node(graph_ptr->GetNode(name));
+    }
+    std::string ToString() {
+        return graph_ptr->ToString();
+    }
 };
 };  // namespace framework::py
 

@@ -64,13 +64,13 @@ class SubGraph : public Graph {
     void AddInputGraph(const std::shared_ptr<SubGraph>& g) {
         input_graphs.push_back(g);
     }
-    void AddInputGraph(SubGraph g) {
+    void AddInputGraph(const SubGraph& g) {
         input_graphs.push_back(std::make_shared<SubGraph>(g));
     }
     void AddOutputGraph(const std::shared_ptr<SubGraph>& g) {
         output_graphs.push_back(g);
     }
-    void AddOutputGraph(SubGraph g) {
+    void AddOutputGraph(const SubGraph& g) {
         output_graphs.push_back(std::make_shared<SubGraph>(g));
     }
 };
