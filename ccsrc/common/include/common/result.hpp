@@ -44,7 +44,9 @@ types::Ok<CleanT> Ok(T&& val) {
     return types::Ok<CleanT>(std::forward<T>(val));
 }
 
-inline types::Ok<void> Ok() { return types::Ok<void>(); }
+inline types::Ok<void> Ok() {
+    return types::Ok<void>();
+}
 
 template <typename E, typename CleanE = typename std::decay<E>::type>
 types::Err<CleanE> Err(E&& val) {
@@ -558,7 +560,9 @@ template <typename E>
 struct Storage<void, E> {
     typedef typename std::aligned_storage<sizeof(E), alignof(E)>::type type;
 
-    void construct(types::Ok<void>) { initialized_ = true; }
+    void construct(types::Ok<void>) {
+        initialized_ = true;
+    }
 
     void construct(types::Err<E> err) {
         new (&storage_) E(err.val);
@@ -573,7 +577,9 @@ struct Storage<void, E> {
         initialized_ = true;
     }
 
-    void destroy(ok_tag) { initialized_ = false; }
+    void destroy(ok_tag) {
+        initialized_ = false;
+    }
     void destroy(err_tag) {
         if (initialized_) {
             get<E>().~E();
@@ -602,14 +608,18 @@ struct Constructor {
         src.destroy(ok_tag());
     }
 
-    static void copy(const Storage<T, E>& src, Storage<T, E>& dst, ok_tag) { dst.rawConstruct(src.template get<T>()); }
+    static void copy(const Storage<T, E>& src, Storage<T, E>& dst, ok_tag) {
+        dst.rawConstruct(src.template get<T>());
+    }
 
     static void move(Storage<T, E>&& src, Storage<T, E>& dst, err_tag) {
         dst.rawConstruct(std::move(src.template get<E>()));
         src.destroy(err_tag());
     }
 
-    static void copy(const Storage<T, E>& src, Storage<T, E>& dst, err_tag) { dst.rawConstruct(src.template get<E>()); }
+    static void copy(const Storage<T, E>& src, Storage<T, E>& dst, err_tag) {
+        dst.rawConstruct(src.template get<E>());
+    }
 };
 
 template <typename E>
@@ -649,9 +659,13 @@ struct Result {
 
     typedef details::Storage<T, E> storage_type;
 
-    Result(types::Ok<T> ok) : ok_(true) { storage_.construct(std::move(ok)); }
+    Result(types::Ok<T> ok) : ok_(true) {
+        storage_.construct(std::move(ok));
+    }
 
-    Result(types::Err<E> err) : ok_(false) { storage_.construct(std::move(err)); }
+    Result(types::Err<E> err) : ok_(false) {
+        storage_.construct(std::move(err));
+    }
 
     Result(Result&& other) {
         if (other.isOk()) {
@@ -702,9 +716,13 @@ struct Result {
             storage_.destroy(details::err_tag());
     }
 
-    bool isOk() const { return ok_; }
+    bool isOk() const {
+        return ok_;
+    }
 
-    bool isErr() const { return !ok_; }
+    bool isErr() const {
+        return !ok_;
+    }
 
     T expect(const char* str) const {
         if (!isOk()) {
@@ -742,9 +760,13 @@ struct Result {
         return details::orElse(*this, func);
     }
 
-    storage_type& storage() { return storage_; }
+    storage_type& storage() {
+        return storage_;
+    }
 
-    const storage_type& storage() const { return storage_; }
+    const storage_type& storage() const {
+        return storage_;
+    }
 
     template <typename U = T>
     typename std::enable_if<!std::is_same<U, void>::value, U>::type unwrapOr(const U& defaultValue) const {
@@ -773,9 +795,11 @@ struct Result {
         std::terminate();
     }
 
-   private:
+  private:
     T expect_impl(std::true_type) const {}
-    T expect_impl(std::false_type) const { return storage_.template get<T>(); }
+    T expect_impl(std::false_type) const {
+        return storage_.template get<T>();
+    }
 
     bool ok_;
     storage_type storage_;

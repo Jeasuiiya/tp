@@ -2,6 +2,7 @@
 #include <pybind11/stl.h>
 
 #include <DistributedIR/graph.hpp>
+#include <memory>
 #include <utility>
 
 #define STRINGIFY(x) #x
@@ -10,15 +11,16 @@
 namespace framework::py {
 class Node {
    private:
-    framework::NodeBase* node_ptr;
+    std::shared_ptr<framework::NodeBase> node_ptr;
 
    public:
-    explicit Node(framework::NodeBase* node_ptr) { node_ptr = node_ptr; }
+    explicit Node(framework::NodeBase node) { node_ptr = std::make_shared<framework::NodeBase>(node); }
+    explicit Node(std::shared_ptr<framework::NodeBase> node) { node_ptr = std::move(node); }
     Node(Node&& node) noexcept { node_ptr = node.node_ptr; }
     Node(Node& node) { node_ptr = node.node_ptr; }
-    Node() { node_ptr = new framework::NodeBase(); }
-    ~Node() { delete node_ptr; }
-    framework::NodeBase* NodePtr() { return this->node_ptr; }
+    Node() { node_ptr = std::make_shared<framework::NodeBase>(); }
+    ~Node() = default;
+    std::shared_ptr<framework::NodeBase>& NodePtr() { return this->node_ptr; }
     DECL_ACCESSOR_PROXY_S(SetName, GetName, std::string, node_ptr, Name)
     DECL_ACCESSOR_PROXY_S(SetOp, GetOp, std::string, node_ptr, Op)
     DECL_ACCESSOR_PROXY_S(SetInputs, GetInputs, std::vector<std::string>, node_ptr, Inputs)
@@ -45,19 +47,11 @@ class Graph {
     Graph() { graph_ptr = new framework::Graph(); }
     ~Graph() { delete graph_ptr; }
     framework::Graph* GraphPtr() { return graph_ptr; }
-    void AddNode(Node& node) {
-        framework::NodeBase node_base(node.NodePtr());
-        graph_ptr->NodeMap().insert(std::pair<std::string, NodeBase&>(node_base.Name(), node_base));
-        graph_ptr->Nodes().push_back(node_base);
-    }
-    void AddNode(int at, Node& node) {
-        framework::NodeBase node_base(node.NodePtr());
-        graph_ptr->NodeMap().insert(std::pair<std::string, NodeBase&>(node_base.Name(), node_base));
-        graph_ptr->Nodes().insert(graph_ptr->Nodes().begin() + at, node_base);
-    }
+    void AddNode(Node& node) { graph_ptr->AddNode(node.NodePtr()); }
+    void AddNode(int at, Node& node) { graph_ptr->AddNode(at, node.NodePtr()); }
 
-    Node GetNode(int at) { return Node(&graph_ptr->Nodes().at(at)); }
-    Node GetNode(const std::string& name) { return Node(&graph_ptr->NodeMap().find(name)->second); }
+    Node GetNode(int at) { return Node(graph_ptr->GetNode(at)); }
+    Node GetNode(const std::string& name) { return Node(graph_ptr->GetNode(name)); }
     std::string ToString() { return graph_ptr->ToString(); }
 };
 };  // namespace framework::py

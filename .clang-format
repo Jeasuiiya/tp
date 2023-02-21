@@ -1,4 +1,7 @@
 # clang-format 14.0.0
 BasedOnStyle: Google
+AccessModifierOffset: -2
 IndentWidth: 4
 ColumnLimit: 120
+AllowShortFunctionsOnASingleLine: Empty
+AllowShortLambdasOnASingleLine: Inline

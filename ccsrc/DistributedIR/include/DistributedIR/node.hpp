@@ -12,7 +12,7 @@
 namespace framework {
 
 class NodeBase {
-   private:
+  private:
     std::string name;                 // 节点名
     std::string op;                   // 算子名
     std::vector<std::string> inputs;  // 节点输入
@@ -28,7 +28,7 @@ class NodeBase {
     int64_t output_memory;                     // 输出内存
 
     // T data;
-   public:
+  public:
     NodeBase() = default;
     explicit NodeBase(NodeBase* node)
         : name(node->name),
@@ -59,8 +59,12 @@ class NodeBase {
     DECL_ACCESSOR(InputMemory, InputMemory, int64_t, input_memory, true)
     DECL_ACCESSOR(OutputMemory, OutputMemory, int64_t, output_memory, true)
     // // DECL_ACCESSOR(T, data)
-    void AddInput(const std::string& input) { inputs.push_back(input); }
-    void AddOutput(const std::string& output) { outputs.push_back(output); }
+    void AddInput(const std::string& input) {
+        inputs.push_back(input);
+    }
+    void AddOutput(const std::string& output) {
+        outputs.push_back(output);
+    }
     std::string ToString() {
         std::stringstream ss;
         ss << "name:" << name << std::endl;

@@ -21,18 +21,18 @@ namespace framework {
 enum class ElementType { U8, I8, U16, I16, U32, I32, U64, I64, F32, F64 };
 
 class Arg {
-   public:
+  public:
     Arg() = default;
     ~Arg() = default;
 
-   private:
+  private:
     /* data */
     std::set<ElementType> element_type;
     std::vector<uint> shape;
 };
 
 class Op {
-   public:
+  public:
     Op(uint in, uint out) {
         this->in = in;
         this->out = out;
@@ -51,7 +51,7 @@ class Op {
     }
     // DECL_ACCESSOR(std::string, name)
 
-   private:
+  private:
     /* data */
     uint in;
     uint out;
@@ -61,7 +61,7 @@ class Op {
 };
 
 class OpRegistry {
-   public:
+  public:
     OpRegistry() = default;
     ~OpRegistry() = default;
     void Register(Op const& op);
@@ -74,7 +74,7 @@ class OpRegistry {
         return ss.str();
     }
 
-   private:
+  private:
     std::vector<Op> ops;
 };
 
