@@ -33,18 +33,18 @@ class Node {
     std::shared_ptr<framework::NodeBase>& NodePtr() {
         return this->node_ptr;
     }
-    DECL_ACCESSOR_PROXY_S(SetName, GetName, std::string, node_ptr, Name)
-    DECL_ACCESSOR_PROXY_S(SetOp, GetOp, std::string, node_ptr, Op)
-    DECL_ACCESSOR_PROXY_S(SetInputs, GetInputs, std::vector<std::string>, node_ptr, Inputs)
-    DECL_ACCESSOR_PROXY_S(SetOutputs, GetOutputs, std::vector<std::string>, node_ptr, Outputs)
-    DECL_ACCESSOR_PROXY_S(SetAttrs, GetAttrs, ALL(std::map<std::string, std::string>), node_ptr, Attrs)
-    DECL_ACCESSOR_PROXY_S(SetStartTime, GetStartTime, int64_t, node_ptr, StartTime)
-    DECL_ACCESSOR_PROXY_S(SetEndTime, GetEndTime, int64_t, node_ptr, EndTime)
-    DECL_ACCESSOR_PROXY_S(SetComputeCost, GetComputeCost, int64_t, node_ptr, ComputeCost)
-    DECL_ACCESSOR_PROXY_S(SetTemporaryMemory, GetTemporaryMemory, int64_t, node_ptr, TemporaryMemory)
-    DECL_ACCESSOR_PROXY_S(SetPersistentMemory, GetPersistentMemory, int64_t, node_ptr, PersistentMemory)
-    DECL_ACCESSOR_PROXY_S(SetInputMemory, GetInputMemory, int64_t, node_ptr, InputMemory)
-    DECL_ACCESSOR_PROXY_S(SetOutputMemory, GetOutputMemory, int64_t, node_ptr, OutputMemory)
+    DECL_ACCESSOR_PROXY_S(SetName, GetName, std::string, node_ptr, Name, M)
+    DECL_ACCESSOR_PROXY_S(SetOp, GetOp, std::string, node_ptr, Op, M)
+    DECL_ACCESSOR_PROXY_S(SetInputs, GetInputs, std::vector<std::string>, node_ptr, Inputs, M)
+    DECL_ACCESSOR_PROXY_S(SetOutputs, GetOutputs, std::vector<std::string>, node_ptr, Outputs, M)
+    DECL_ACCESSOR_PROXY_S(SetAttrs, GetAttrs, ALL(std::map<std::string, std::string>), node_ptr, Attrs, M)
+    DECL_ACCESSOR_PROXY_S(SetStartTime, GetStartTime, int64_t, node_ptr, StartTime, M)
+    DECL_ACCESSOR_PROXY_S(SetEndTime, GetEndTime, int64_t, node_ptr, EndTime, M)
+    DECL_ACCESSOR_PROXY_S(SetComputeCost, GetComputeCost, int64_t, node_ptr, ComputeCost, M)
+    DECL_ACCESSOR_PROXY_S(SetTemporaryMemory, GetTemporaryMemory, int64_t, node_ptr, TemporaryMemory, M)
+    DECL_ACCESSOR_PROXY_S(SetPersistentMemory, GetPersistentMemory, int64_t, node_ptr, PersistentMemory, M)
+    DECL_ACCESSOR_PROXY_S(SetInputMemory, GetInputMemory, int64_t, node_ptr, InputMemory, M)
+    DECL_ACCESSOR_PROXY_S(SetOutputMemory, GetOutputMemory, int64_t, node_ptr, OutputMemory, M)
     void AddInput(const std::string& input) {
         node_ptr->AddInput(std::move(input));
     }
@@ -106,7 +106,7 @@ PYBIND11_MODULE(PYBIND11_CURRENT_MODULE_NAME, m) {
 
     py::class_<PyNode>(m, "Node")
         .def(py::init())
-        .def(py::init([](std::string name, std::string op) {
+        .def(py::init([](const std::string& name, const std::string& op) {
             auto n = std::make_unique<PyNode>();
             n->SetName(std::move(name));
             n->SetOp(std::move(op));

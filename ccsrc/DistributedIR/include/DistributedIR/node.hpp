@@ -30,6 +30,7 @@ class NodeBase {
     // T data;
   public:
     NodeBase() = default;
+    NodeBase(const NodeBase& n) = default;
     explicit NodeBase(NodeBase* node)
         : name(node->name),
           op(node->op),
@@ -45,19 +46,19 @@ class NodeBase {
           input_memory(node->input_memory),
           output_memory(node->output_memory) {}
     virtual ~NodeBase() = default;
-    DECL_ACCESSOR(Name, Name, std::string, name, true)
-    DECL_ACCESSOR(Op, Op, std::string, op, true)
-    DECL_ACCESSOR(Device, Device, std::string, device, true)
-    DECL_ACCESSOR(Inputs, Inputs, std::vector<std::string>, inputs, true)
-    DECL_ACCESSOR(Outputs, Outputs, std::vector<std::string>, outputs, true)
-    DECL_ACCESSOR(Attrs, Attrs, ALL(std::map<std::string, std::string>), attrs, true)
-    DECL_ACCESSOR(StartTime, StartTime, int64_t, start_time, true)
-    DECL_ACCESSOR(EndTime, EndTime, int64_t, end_time, true)
-    DECL_ACCESSOR(ComputeCost, ComputeCost, int64_t, compute_cost, true)
-    DECL_ACCESSOR(TemporaryMemory, TemporaryMemory, int64_t, temporary_memory, true)
-    DECL_ACCESSOR(PersistentMemory, PersistentMemory, int64_t, persistent_memory, true)
-    DECL_ACCESSOR(InputMemory, InputMemory, int64_t, input_memory, true)
-    DECL_ACCESSOR(OutputMemory, OutputMemory, int64_t, output_memory, true)
+    DECL_ACCESSOR(Name, Name, std::string, name, M)
+    DECL_ACCESSOR(Op, Op, std::string, op, M)
+    DECL_ACCESSOR(Device, Device, std::string, device, M)
+    DECL_ACCESSOR(Inputs, Inputs, std::vector<std::string>, inputs, M)
+    DECL_ACCESSOR(Outputs, Outputs, std::vector<std::string>, outputs, M)
+    DECL_ACCESSOR(Attrs, Attrs, ALL(std::map<std::string, std::string>), attrs, M)
+    DECL_ACCESSOR(StartTime, StartTime, int64_t, start_time, M)
+    DECL_ACCESSOR(EndTime, EndTime, int64_t, end_time, M)
+    DECL_ACCESSOR(ComputeCost, ComputeCost, int64_t, compute_cost, M)
+    DECL_ACCESSOR(TemporaryMemory, TemporaryMemory, int64_t, temporary_memory, M)
+    DECL_ACCESSOR(PersistentMemory, PersistentMemory, int64_t, persistent_memory, M)
+    DECL_ACCESSOR(InputMemory, InputMemory, int64_t, input_memory, M)
+    DECL_ACCESSOR(OutputMemory, OutputMemory, int64_t, output_memory, M)
     // // DECL_ACCESSOR(T, data)
     void AddInput(const std::string& input) {
         inputs.push_back(input);

@@ -2,8 +2,6 @@
 #define FRAMEWORK_GRAPH_GRAPH_H
 
 #include <memory>
-#include <numeric>
-#include <utility>
 #include <vector>
 
 #include "common/util.hpp"
@@ -18,8 +16,16 @@ class Graph {
   public:
     Graph() = default;
     virtual ~Graph() = default;
-    DECL_ACCESSOR(Nodes, Nodes, std::vector<std::shared_ptr<NodeBase>>, nodes, true)
-    DECL_ACCESSOR(NodeMap, NodeMap, ALL(std::map<std::string, std::shared_ptr<NodeBase>>), node_map, true)
+    Graph(const Graph& g) {
+        for (const auto& i : g.nodes) {
+            auto ptr = std::make_shared<NodeBase>(*i);
+            nodes.push_back(ptr);
+            node_map.insert({ptr->Name(), ptr});
+        }
+    }
+    Graph(Graph&& g) noexcept : nodes(std::move(g.nodes)), node_map(std::move(g.node_map)) {}
+    DECL_ACCESSOR(Nodes, Nodes, std::vector<std::shared_ptr<NodeBase>>, nodes, M)
+    DECL_ACCESSOR(NodeMap, NodeMap, ALL(std::map<std::string, std::shared_ptr<NodeBase>>), node_map, M)
     void AddNode(NodeBase node) {
         auto n = std::make_shared<NodeBase>(node);
         node_map.insert({node.Name(), n});
