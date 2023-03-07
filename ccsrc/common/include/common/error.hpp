@@ -1,5 +1,5 @@
-#ifndef _FRAMEWORK_ERROR_HPP
-#define _FRAMEWORK_ERROR_HPP
+#ifndef FRAMEWORK_ERROR_HPP
+#define FRAMEWORK_ERROR_HPP
 #include <string>
 enum class Kind { Unknown, Invalid, Unimplemented, Internal };
 struct Error {
@@ -10,5 +10,4 @@ struct Error {
     Kind kind;
     std::string text;
 };
-#endif /* ifndef _HDU_ERROR_HPP \
-        */
+#endif

@@ -27,12 +27,14 @@ option(FRAMEWORK_ENABLE_BINDINGS_PYTHON "python bindings" ON)
 include(CPM)
 include(HeaderOnlyLibrary)
 include(FetchSpdlog)
+include(FetchResult)
 include(FetchLLVM)
 include(FetchBoost)
 
 # set(FETCHCONTENT_QUIET FALSE)
 
 # fetch_llvm()
+fetch_result()
 fetch_spdlog()
 
 if(FRAMEWORK_ENABLE_BINDINGS_PYTHON)
