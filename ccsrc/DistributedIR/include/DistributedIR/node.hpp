@@ -17,8 +17,11 @@ class NodeBase {
     std::string op;                   // 算子名
     std::vector<std::string> inputs;  // 节点输入
     std::vector<std::string> outputs;
+    std::vector<std::string> inputs_data;      // “输入节点名：输出index”
+    std::vector<std::string> outputs_data;     // 当前节点的输出   当前节点名:输出index
     std::string device;                        // 该节点的计算设备
     std::map<std::string, std::string> attrs;  // 节点属性
+    int64_t outputs_num;                       // 输出个数
     int64_t start_time;                        // 开始时间
     int64_t end_time;                          // 结束时间
     int64_t compute_cost;                      // 计算代价
@@ -36,6 +39,9 @@ class NodeBase {
           op(node->op),
           inputs(node->inputs),
           outputs(node->outputs),
+          inputs_data(node->inputs_data),
+          outputs_data(node->outputs_data),
+          outputs_num(node->outputs_num),
           device(node->device),
           attrs(node->attrs),
           start_time(node->start_time),
@@ -51,6 +57,9 @@ class NodeBase {
     DECL_ACCESSOR(Device, Device, std::string, device, M)
     DECL_ACCESSOR(Inputs, Inputs, std::vector<std::string>, inputs, M)
     DECL_ACCESSOR(Outputs, Outputs, std::vector<std::string>, outputs, M)
+    DECL_ACCESSOR(InputsData, InputsData, std::vector<std::string>, inputs_data, M)
+    DECL_ACCESSOR(OutputsData, OutputsData, std::vector<std::string>, outputs_data, M)
+    DECL_ACCESSOR(OutputsNum, OutputsNum, int64_t, outputs_num, M)
     DECL_ACCESSOR(Attrs, Attrs, ALL(std::map<std::string, std::string>), attrs, M)
     DECL_ACCESSOR(StartTime, StartTime, int64_t, start_time, M)
     DECL_ACCESSOR(EndTime, EndTime, int64_t, end_time, M)

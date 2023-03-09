@@ -5,7 +5,11 @@ enum class Kind { Unknown, Invalid, Unimplemented, Internal };
 struct Error {
     Error(Kind kind, std::string text) {
         this->kind = kind;
-        this->text = text;
+        this->text = std::move(text);
+    }
+    Error() {
+        this->kind = Kind::Unknown;
+        this->text = "Unknown Error";
     }
     Kind kind;
     std::string text;

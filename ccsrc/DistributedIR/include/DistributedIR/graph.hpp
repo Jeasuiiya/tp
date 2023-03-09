@@ -62,11 +62,12 @@ class Graph {
 };
 
 class SubGraph : public Graph {
-    std::vector<std::shared_ptr<SubGraph>> input_graphs;      // 输入图
-    std::vector<std::map<std::string, std::string>> inputs;   // 各图输入
-    std::vector<std::shared_ptr<SubGraph>> output_graphs;     // 输出图
-    std::vector<std::map<std::string, std::string>> outputs;  // 输出
+    std::vector<std::shared_ptr<SubGraph>> input_graphs;           // 输入图
+    std::vector<std::multimap<std::string, std::string>> inputs;   // 各图输入
+    std::vector<std::shared_ptr<SubGraph>> output_graphs;          // 输出图
+    std::vector<std::multimap<std::string, std::string>> outputs;  // 输出
 
+  public:
     void AddInputGraph(const std::shared_ptr<SubGraph>& g) {
         input_graphs.push_back(g);
     }
@@ -79,6 +80,15 @@ class SubGraph : public Graph {
     void AddOutputGraph(const SubGraph& g) {
         output_graphs.push_back(std::make_shared<SubGraph>(g));
     }
+
+    void AddInput(const std::multimap<std::string, std::string>& op_op) {
+        inputs.push_back(op_op);
+    }
+    void AddOutput(const std::multimap<std::string, std::string>& op_op) {
+        outputs.push_back(op_op);
+    }
+    DECL_GETTER(GetInputs, ALL(std::vector<std::multimap<std::string, std::string>>), inputs)
+    DECL_GETTER(GetOutputs, ALL(std::vector<std::multimap<std::string, std::string>>), outputs)
 };
 
 }  // namespace framework
