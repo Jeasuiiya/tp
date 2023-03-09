@@ -13,4 +13,4 @@ FLAGS="-i"
 if [ -n "$2" ]; then
     FLAGS=$2
 fi
-./scripts/batch.py --regex-cc --flags="$FLAGS" ccsrc
+./scripts/batch.py --regex-cc --flags="$FLAGS" $1

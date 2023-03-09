@@ -1,3 +1,5 @@
 pylint
 black
 cmakelang
+clang-format
+clang-tidy
