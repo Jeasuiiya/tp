@@ -52,7 +52,7 @@ class Node {
         node_ptr->AddOutput(std::move(output));
     }
     std::string ToString() {
-        return node_ptr->ToString();
+        return fmt::to_string(node_ptr);
     }
 };
 class Graph {
@@ -89,7 +89,7 @@ class Graph {
         return Node(graph_ptr->GetNode(name));
     }
     std::string ToString() {
-        return graph_ptr->ToString();
+        return fmt::to_string(*graph_ptr);
     }
 };
 };  // namespace framework::py

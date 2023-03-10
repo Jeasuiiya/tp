@@ -1,3 +1,3 @@
 # add_subdirectory(include)
 add_header_only_library(CommonHeaders ${CMAKE_CURRENT_SOURCE_DIR}/include ${CMAKE_INSTALL_INCLUDEDIR}/common
-                        DEPENDS Result::Result)
+                        DEPENDS Result::Result fmt::fmt)

@@ -17,6 +17,16 @@ target_link_libraries(
   GTest::gtest_main
   DistributedIR
 )
+add_executable(
+    test_Common
+    test_common.cc
+)
+target_link_libraries(
+  test_Common
+  GTest::gtest_main
+  CommonHeaders
+  DistributedIR
+)
 
 add_executable(test_op test_op.cc)
 target_link_libraries(
@@ -27,3 +37,4 @@ target_link_libraries(
 include(GoogleTest)
 gtest_discover_tests(test_example)
 gtest_discover_tests(test_DistributedIR)
+gtest_discover_tests(test_Common)

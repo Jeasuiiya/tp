@@ -4,11 +4,19 @@
 #include <memory>
 #include <vector>
 
+#include "common/fmt.hpp"
 #include "common/util.hpp"
+#include "fmt/core.h"
+#include "fmt/format.h"
+#include "fmt/ranges.h"
 #include "node.hpp"
 namespace framework {
-
+class SubGraph;
 class Graph {
+    friend class fmt::formatter<Graph>;
+    friend class fmt::formatter<SubGraph>;
+    friend class fmt::formatter<std::shared_ptr<SubGraph>>;
+
   private:
     std::vector<std::shared_ptr<NodeBase>> nodes;
     std::map<std::string, std::shared_ptr<NodeBase>> node_map;
@@ -52,16 +60,12 @@ class Graph {
     std::shared_ptr<NodeBase>& GetNode(const std::string& name) {
         return node_map.find(name)->second;
     }
-
-    std::string ToString() {
-        // return "";
-        return std::accumulate(
-            nodes.begin(), nodes.end(), std::string(),
-            [](const std::string& s, std::shared_ptr<NodeBase>& p) { return s + "\n" + p->ToString(); });
-    }
 };
 
 class SubGraph : public Graph {
+    friend class fmt::formatter<SubGraph>;
+    friend class fmt::formatter<std::shared_ptr<SubGraph>>;
+
     std::vector<std::shared_ptr<SubGraph>> input_graphs;           // 输入图
     std::vector<std::multimap<std::string, std::string>> inputs;   // 各图输入
     std::vector<std::shared_ptr<SubGraph>> output_graphs;          // 输出图
@@ -87,10 +91,38 @@ class SubGraph : public Graph {
     void AddOutput(const std::multimap<std::string, std::string>& op_op) {
         outputs.push_back(op_op);
     }
+
     DECL_GETTER(GetInputs, ALL(std::vector<std::multimap<std::string, std::string>>), inputs)
     DECL_GETTER(GetOutputs, ALL(std::vector<std::multimap<std::string, std::string>>), outputs)
 };
 
 }  // namespace framework
+
+// NOLINTBEGIN(readability-identifier-naming)
+template <>
+struct fmt::formatter<framework::Graph> {
+    static constexpr auto parse(format_parse_context& ctx) -> decltype(ctx.begin()) {
+        return ctx.end();
+    }
+
+    template <typename FormatContext>
+    auto format(const framework::Graph& g, FormatContext& ctx) const -> decltype(ctx.out()) {
+        return fmt::format_to(ctx.out(), "Graph(nodes={})", g.nodes);
+    }
+};
+
+template <>
+struct fmt::formatter<framework::SubGraph> {
+    static constexpr auto parse(format_parse_context& ctx) -> decltype(ctx.begin()) {
+        return ctx.end();
+    }
+
+    template <typename FormatContext>
+    auto format(const framework::SubGraph& g, FormatContext& ctx) const -> decltype(ctx.out()) {
+        return fmt::format_to(ctx.out(), "Graph(nodes={}, input_graphs={}, inputs={}, output_graphs={}, outputs={})",
+                              g.nodes, g.input_graphs, g.inputs, g.output_graphs, g.outputs);
+    }
+};
+// NOLINTEND(readability-identifier-naming)
 
 #endif

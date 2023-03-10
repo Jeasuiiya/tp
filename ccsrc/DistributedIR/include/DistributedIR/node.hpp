@@ -9,9 +9,15 @@
 #include <vector>
 
 #include "common/util.hpp"
+#include "fmt/core.h"
+#include "fmt/format.h"
+#include "fmt/ranges.h"
 namespace framework {
 
 class NodeBase {
+    friend class fmt::formatter<NodeBase>;
+    friend class fmt::formatter<std::shared_ptr<NodeBase>>;
+
   private:
     std::string name;                 // 节点名
     std::string op;                   // 算子名
@@ -75,43 +81,27 @@ class NodeBase {
     void AddOutput(const std::string& output) {
         outputs.push_back(output);
     }
-    std::string ToString() {
-        std::stringstream ss;
-        ss << "name:" << name << std::endl;
-        ss << "op:" << op << std::endl;
-        ss << "inputs: "
-           << std::accumulate(
-                  inputs.begin(), inputs.end(), std::string(),
-                  [](const std::string& s, const std::string& p) { return s + (s.empty() ? std::string() : ", ") + p; })
-           << std::endl;
-        ss << "device: " << device << std::endl;
-        ss << "attrs: "
-           << std::accumulate(attrs.begin(), attrs.end(), std::string(),
-                              [](const std::string& s, const std::pair<const std::string, std::string>& p) {
-                                  return s + (s.empty() ? std::string() : "\n") + p.first + ": " + p.second;
-                              })
-           << std::endl;
-        return ss.str();
-    }
 };
 
 class MergedNode : public NodeBase {
     std::vector<NodeBase> merged_nodes;  // 已合并节点
 };
 
-// template <typename T>
-// class Node : public NodeBase {
-//   using NodeBase::NodeBase;
-
-//  public:
-//   T data;
-//   DECL_ACCESSOR(T, data)
-// };
-// template <>
-// class Node<void> : public NodeBase {
-//   using NodeBase::NodeBase;
-// };
-// GEN_SETTER(Node, std::string, name)
 }  // namespace framework
+
+// NOLINTBEGIN(readability-identifier-naming)
+template <>
+struct fmt::formatter<framework::NodeBase> {
+    static constexpr auto parse(format_parse_context& ctx) -> decltype(ctx.begin()) {
+        return ctx.end();
+    }
+
+    template <typename FormatContext>
+    auto format(const framework::NodeBase& n, FormatContext& ctx) const -> decltype(ctx.out()) {
+        return fmt::format_to(ctx.out(), "NodeBase(name={}, op={}, device={}, inputs={}, attrs={})", n.name, n.op,
+                              n.device, n.inputs, n.attrs);
+    }
+};
+// NOLINTEND(readability-identifier-naming)
 
 #endif /* ifndef _GRAPH_NODE_H */

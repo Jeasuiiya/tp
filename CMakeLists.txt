@@ -11,6 +11,8 @@ set(CMAKE_CXX_STANDARD 20)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake ${PROJECT_SOURCE_DIR}/cmake/third_party)
 
 option(FRAMEWORK_BUILD_TEST "build test" ON)
@@ -28,6 +30,7 @@ include(CPM)
 include(HeaderOnlyLibrary)
 include(FetchSpdlog)
 include(FetchResult)
+include(FetchFmt)
 include(FetchLLVM)
 include(FetchBoost)
 
@@ -35,6 +38,7 @@ include(FetchBoost)
 
 # fetch_llvm()
 fetch_result()
+fetch_fmt()
 fetch_spdlog()
 
 if(FRAMEWORK_ENABLE_BINDINGS_PYTHON)

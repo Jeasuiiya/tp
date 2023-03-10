@@ -11,119 +11,14 @@
 #include <vector>
 
 #include "DistributedIR/graph.hpp"
+#include "common/fmt.hpp"
 #include "common/util.hpp"
+#include "edge.hpp"
 namespace framework {
 
-inline namespace edge {
-template <typename T>
-struct Edge;
-
-template <typename T>
-struct EdgePort {
-    using TT = typename std::remove_reference<T>::type;
-    TT* entity;
-    int index;
-    Edge<TT>* edge = nullptr;
-    EdgePort(TT* entity, int index) : entity(entity), index(index) {}
-    bool operator==(const EdgePort<T> port) const {
-        return *entity == *port.entity && this->index == port.index;
-    }
-
-    EdgePort<TT> operator|(const Edge<TT>& edge) {
-        this->edge = &edge;
-        return *this;
-    }
-
-    EdgePort<TT> operator|(Edge<TT>* edge) {
-        this->edge = edge;
-        return *this;
-    }
-
-    EdgePort<TT> operator>>(Edge<TT>& edge) {
-        edge.start = *this;
-        return *this;
-    }
-
-    EdgePort<TT> operator<<(Edge<TT>& edge) {
-        edge.end = *this;
-        return *this;
-    }
-
-    EdgePort<TT> operator>>(Edge<TT>* edge) {
-        edge->start = *this;
-        return *this;
-    }
-
-    EdgePort<TT> operator<<(Edge<TT>* edge) {
-        edge->end = *this;
-        return *this;
-    }
-};
-
-template <>
-struct EdgePort<std::string> {
-    std::string entity;
-    explicit EdgePort(std::string entity) : entity(std::move(entity)) {}
-    bool operator==(const EdgePort<std::string>& port) const {
-        return this->entity == port.entity;
-    }
-};
-
-template <typename T>
-struct Edge {
-    using TT = typename std::remove_reference<T>::type;
-    Edge(TT* start, int start_index, TT* end, int end_index)
-        : start(EdgePort<TT>(start, start_index)), end(EdgePort<TT>(end, end_index)) {
-        this->start | this;
-        this->end | this;
-    }
-    Edge(EdgePort<TT> start, EdgePort<TT> end) : start(start), end(end) {
-        this->start | this;
-        this->end | this;
-    }
-    EdgePort<TT> start;
-    EdgePort<TT> end;
-};
-
-struct HasInternalEdge {
-    virtual void Connect(int start_item, int start_out_index, int end_item, int end_arg_index) = 0;
-};
-
-template <typename T>
-struct HasEdgePort {
-    virtual void BuildInputPorts() = 0;
-    virtual void BuildOutputPorts() = 0;
-    void BuildSeclectedPorts(const std::function<uint64_t(const T&)>& searchPortSize,
-                             const std::function<EdgePort<T>(Edge<T>&)>& getEdgePort, std::vector<T>& internelEles,
-                             std::vector<Edge<T>>& edges, std::vector<EdgePort<T>>& out) {
-        std::vector<EdgePort<T>> result;
-        for (auto ele : internelEles) {
-            for (size_t i = 0; i < searchPortSize(ele); i++) {
-                EdgePort<T> ep(&ele, i);
-                bool internal_connected = false;
-                for (auto e : edges) {
-                    // output edge port must be a edge start
-                    if (getEdgePort(e) == ep) {
-                        internal_connected = true;
-                        break;
-                    }
-                }
-                if (!internal_connected) {
-                    result.push_back(ep);
-                }
-            }
-        }
-        out = result;
-    }
-    virtual void BuildPorts() {
-        BuildInputPorts();
-        BuildOutputPorts();
-    }
-};
-
-}  // namespace edge
-
 class Block {
+    friend struct fmt::formatter<Block>;
+
   public:
     Block(std::string id, std::string device, SubGraph graph)
         : id(std::move(id)), device(std::move(device)), graph(std::move(graph)) {}
@@ -151,6 +46,8 @@ class Block {
 };
 
 class DeviceGraph : public HasInternalEdge, public HasEdgePort<Block> {
+    friend struct fmt::formatter<DeviceGraph>;
+
   public:
     explicit DeviceGraph(std::string id) : id(std::move(id)){};
     virtual ~DeviceGraph() = default;
@@ -191,6 +88,7 @@ class DeviceGraph : public HasInternalEdge, public HasEdgePort<Block> {
 
   private:
     std::string id;
+    std::string device;
     std::vector<Block> blocks;
     // internal edge
     std::vector<Edge<Block>> edges;
@@ -201,6 +99,8 @@ class DeviceGraph : public HasInternalEdge, public HasEdgePort<Block> {
 };
 
 class ServerGraph : public HasInternalEdge, public HasEdgePort<DeviceGraph> {
+    friend struct fmt::formatter<ServerGraph>;
+
   public:
     explicit ServerGraph(std::string id) : id(std::move(id)){};
     virtual ~ServerGraph() = default;
@@ -243,6 +143,7 @@ class ServerGraph : public HasInternalEdge, public HasEdgePort<DeviceGraph> {
 
   private:
     std::string id;
+    std::string server;
     std::vector<DeviceGraph> device_graphs;
     std::vector<Edge<DeviceGraph>> edges;
     // port
@@ -251,6 +152,8 @@ class ServerGraph : public HasInternalEdge, public HasEdgePort<DeviceGraph> {
 };
 
 class ClusterGraph : public HasInternalEdge, public HasEdgePort<ServerGraph> {
+    friend struct fmt::formatter<ClusterGraph>;
+
   public:
     explicit ClusterGraph(std::string id) : id(std::move(id)){};
     virtual ~ClusterGraph() = default;
@@ -298,4 +201,52 @@ class ClusterGraph : public HasInternalEdge, public HasEdgePort<ServerGraph> {
 };
 
 }  // namespace framework
+// NOLINTBEGIN(readability-identifier-naming)
+template <>
+struct fmt::formatter<framework::Block> : public fmt::formatter<ShortFormat> {
+    template <typename FormatContext>
+    auto format(const framework::Block& b, FormatContext& ctx) const -> decltype(ctx.out()) {
+        if (presentation == 's') {
+            return fmt::format_to(ctx.out(), "Block(id={})", b.id);
+        }
+        return fmt::format_to(ctx.out(), "Block(id={}, device={}, graph={}, inputs={}, outputs={})", b.id, b.device,
+                              b.graph, b.inputs, b.outputs);
+    }
+};
+
+template <>
+struct fmt::formatter<framework::DeviceGraph> : public fmt::formatter<ShortFormat> {
+    template <typename FormatContext>
+    auto format(const framework::DeviceGraph& dg, FormatContext& ctx) const -> decltype(ctx.out()) {
+        if (presentation == 's') {
+            return fmt::format_to(ctx.out(), "DeviceGraph(id={})", dg.id);
+        }
+        return fmt::format_to(ctx.out(), "DeviceGraph(id={}, device={}, blocks={}, edges={}, inputs={}, outputs={})",
+                              dg.id, dg.device, dg.blocks, dg.edges, dg.inputs, dg.outputs);
+    }
+};
+
+template <>
+struct fmt::formatter<framework::ServerGraph> : public fmt::formatter<ShortFormat> {
+    template <typename FormatContext>
+    auto format(const framework::ServerGraph& sg, FormatContext& ctx) const -> decltype(ctx.out()) {
+        if (presentation == 's') {
+            return fmt::format_to(ctx.out(), "ServerGraph(id={})", sg.id);
+        }
+        return fmt::format_to(ctx.out(), "ServerGraph(id={}, device={}, graphs={}, edges={}, inputs={}, outputs={})",
+                              sg.id, sg.server, sg.device_graphs, sg.edges, sg.inputs, sg.outputs);
+    }
+};
+template <>
+struct fmt::formatter<framework::ClusterGraph> : public fmt::formatter<ShortFormat> {
+    template <typename FormatContext>
+    auto format(const framework::ClusterGraph& cg, FormatContext& ctx) const -> decltype(ctx.out()) {
+        if (presentation == 's') {
+            return fmt::format_to(ctx.out(), "ClusterGraph(id={})", cg.id);
+        }
+        return fmt::format_to(ctx.out(), "ClusterGraph(id={}, graphs={}, edges={}, inputs={}, outputs={})", cg.id,
+                              cg.server_graphs, cg.edges, cg.inputs, cg.outputs);
+    }
+};
+// NOLINTEND(readability-identifier-naming)
 #endif /* end of include guard: FRAMEWORK_IR_BLOCK_H */

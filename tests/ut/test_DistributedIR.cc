@@ -1,14 +1,15 @@
 #include <gtest/gtest.h>
+
 #include <iostream>
-#include <string>
 #include <map>
+#include <string>
 
 #define private public
 #include "DistributedIR/block.hpp"
-#include "DistributedIR/op.hpp"
+#include "DistributedIR/dividegraph.hpp"
 #include "DistributedIR/graph.hpp"
 #include "DistributedIR/node.hpp"
-#include "DistributedIR/dividegraph.hpp"
+#include "DistributedIR/op.hpp"
 namespace framework {
 // Demonstrate some basic assertions.
 TEST(TestDistributedIR, DeviceGraph) {
@@ -131,7 +132,8 @@ TEST(TestDistributedIR, DeviceGraph) {
 
     EXPECT_EQ(cluster_graph.inputs.size(), 8);
     EXPECT_EQ(cluster_graph.outputs.size(), 1);
-
+    EXPECT_NO_THROW(std::cout << cluster_graph << std::endl);
+    EXPECT_NO_THROW(std::cout << std::make_shared<ClusterGraph>(cluster_graph) << std::endl);
 }
 TEST(TestDistributedIR, DivideGraph2SubGraph) {
     //================================================
@@ -163,7 +165,7 @@ TEST(TestDistributedIR, DivideGraph2SubGraph) {
     node_3.Name("conv2");
     node_3.Device("dev1");
     node_3.ComputeCost(3.3);
-    node_3.Inputs({ "conv1"});
+    node_3.Inputs({"conv1"});
     node_3.PersistentMemory(3.4);
     node_3.Outputs({"output"});
     node_3.InputsData({"conv1:0"});
@@ -207,10 +209,10 @@ TEST(TestDistributedIR, DivideGraph2SubGraph) {
     node_7.Name("output");
     node_7.Device("dev0");
     node_7.ComputeCost(3.1);
-    node_7.Inputs({"conv2","conv3","conv6"});
+    node_7.Inputs({"conv2", "conv3", "conv6"});
     node_7.PersistentMemory(2.6);
     node_7.Outputs({});
-    node_7.InputsData({"conv2:0","conv3:0","conv6:0"});
+    node_7.InputsData({"conv2:0", "conv3:0", "conv6:0"});
     node_7.OutputsData({});
     node_7.OutputsNum(0);
 
@@ -221,9 +223,10 @@ TEST(TestDistributedIR, DivideGraph2SubGraph) {
     graph3.AddNode(node_5);
     graph3.AddNode(node_6);
     graph3.AddNode(node_7);
+    EXPECT_NO_THROW(std::cout << graph3 << std::endl);
+    EXPECT_NO_THROW(std::cout << std::make_shared<Graph>(graph3) << std::endl);
     auto r = DivideGraph(graph3);
     EXPECT_TRUE(r.has_value());
     EXPECT_EQ(r.value().size(), 4);
 }
 }  // namespace framework
-
