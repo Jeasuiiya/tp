@@ -23,7 +23,7 @@ class NodeBase {
     std::string op;                   // 算子名
     std::vector<std::string> inputs;  // 节点输入
     std::vector<std::string> outputs;
-    std::vector<std::string> inputs_data;      // “输入节点名：输出index”
+    std::vector<std::string> inputs_data;      // 输入节点名:输出index
     std::vector<std::string> outputs_data;     // 当前节点的输出   当前节点名:输出index
     std::string device;                        // 该节点的计算设备
     std::map<std::string, std::string> attrs;  // 节点属性
