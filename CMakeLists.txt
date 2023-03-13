@@ -21,8 +21,8 @@ option(FRAMEWORK_BUILD_TEST "build test" ON)
 
 # # Another method: cmake -DPYTHON_EXECUTABLE=/path/to/python ..
 
-# # This often is a good way to get the current Python, works in environments: cmake -DPYTHON_EXECUTABLE=$(python3 -c
-# "import sys; print(sys.executable)") ..
+# # This often is a good way to get the current Python, works in environments:
+# cmake -DPYTHON_EXECUTABLE=$(python3 -c "import sys; print(sys.executable)") ..
 option(FRAMEWORK_ENABLE_BINDINGS_PYTHON "python bindings" ON)
 
 # begin config set(CMAKE_MESSAGE_LOG_LEVEL TRACE)
@@ -31,6 +31,8 @@ include(HeaderOnlyLibrary)
 include(FetchSpdlog)
 include(FetchResult)
 include(FetchFmt)
+# provide ranges without c++20
+include(FetchRange)
 include(FetchLLVM)
 include(FetchBoost)
 
@@ -39,7 +41,17 @@ include(FetchBoost)
 # fetch_llvm()
 fetch_result()
 fetch_fmt()
+fetch_range()
 fetch_spdlog()
+
+# third libraries as common denpendencies
+set(FRAMEWORK_THIRD_COMMON_LIBS "")
+list(APPEND FRAMEWORK_THIRD_COMMON_LIBS Result::Result)
+list(APPEND FRAMEWORK_THIRD_COMMON_LIBS fmt::fmt)
+list(APPEND FRAMEWORK_THIRD_COMMON_LIBS range-v3)
+
+add_library(ThirdCommon INTERFACE)
+target_link_libraries(ThirdCommon INTERFACE ${FRAMEWORK_THIRD_COMMON_LIBS})
 
 if(FRAMEWORK_ENABLE_BINDINGS_PYTHON)
   include(FetchPybind11)
@@ -50,7 +62,7 @@ add_subdirectory(ccsrc)
 
 if(FRAMEWORK_BUILD_TEST)
   include(FetchGTest)
-  set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
+  set(INSTALL_GTEST OFF CACHE BOOL OFF FORCE)
   fetch_gtest()
   enable_testing()
   add_subdirectory(tests)
