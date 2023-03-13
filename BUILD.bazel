@@ -1,0 +1,21 @@
+cc_library(
+    name = "CommonHeaders",
+    hdrs = glob(["ccsrc/common/include/**/*.hpp"]),
+    includes = ["ccsrc/common/include"],
+    deps = ["@fmt", "@result", "@range-v3"]
+)
+
+cc_library(
+    name = "DistributedIRHeaders",
+    hdrs = glob(["ccsrc/DistributedIR/include/**/*.hpp"]),
+    includes = ["ccsrc/DistributedIR/include"],
+    deps = ["CommonHeaders"]
+)
+
+cc_library(
+    name = "DistributedIR",
+    srcs = glob(["ccsrc/DistributedIR/*.cc"]),
+    deps = ["DistributedIRHeaders"]
+)
+
+
