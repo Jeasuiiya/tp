@@ -5,8 +5,6 @@ include(CPM)
 function(fetch_range)
   CPMAddPackage(
     NAME range
-    GITHUB_REPOSITORY ericniebler/range-v3
-    GIT_TAG d04bfc # Commits on Mar 3, 2023
-    GIT_SHALLOW ON
+    URL "https://github.com/ericniebler/range-v3/archive/541b06320b89c16787cc6f785f749f8847cf2cd1.zip" # Commits on Mar 14, 2023
     EXCLUDE_FROM_ALL ON)
 endfunction(fetch_range)
