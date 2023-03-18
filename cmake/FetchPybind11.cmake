@@ -3,11 +3,13 @@ include(CPM)
 
 # fetch_pybind11
 function(fetch_pybind11)
-  CPMAddPackage(
-    NAME pybind11
-    GITHUB_REPOSITORY pybind/pybind11
-    GIT_TAG v2.10.3
-    EXCLUDE_FROM_ALL ON)
+  if(NOT TARGET pybind11::pybind11)
+    CPMAddPackage(
+      NAME pybind11
+      GITHUB_REPOSITORY pybind/pybind11
+      GIT_TAG v2.10.3
+      EXCLUDE_FROM_ALL ON)
+  endif()
 endfunction(fetch_pybind11)
 
 # cmake-lint: disable=W0106

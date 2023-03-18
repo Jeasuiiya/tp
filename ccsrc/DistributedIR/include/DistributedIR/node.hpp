@@ -15,8 +15,8 @@
 namespace framework {
 
 class NodeBase {
-    friend class fmt::formatter<NodeBase>;
-    friend class fmt::formatter<std::shared_ptr<NodeBase>>;
+    friend struct fmt::formatter<NodeBase>;
+    friend struct fmt::formatter<std::shared_ptr<NodeBase>>;
 
   private:
     std::string name;                 // 节点名
@@ -47,9 +47,9 @@ class NodeBase {
           outputs(node->outputs),
           inputs_data(node->inputs_data),
           outputs_data(node->outputs_data),
-          outputs_num(node->outputs_num),
           device(node->device),
           attrs(node->attrs),
+          outputs_num(node->outputs_num),
           start_time(node->start_time),
           end_time(node->end_time),
           compute_cost(node->compute_cost),

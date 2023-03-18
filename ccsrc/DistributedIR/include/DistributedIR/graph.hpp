@@ -13,9 +13,9 @@
 namespace framework {
 class SubGraph;
 class Graph {
-    friend class fmt::formatter<Graph>;
-    friend class fmt::formatter<SubGraph>;
-    friend class fmt::formatter<std::shared_ptr<SubGraph>>;
+    friend struct fmt::formatter<Graph>;
+    friend struct fmt::formatter<SubGraph>;
+    friend struct fmt::formatter<std::shared_ptr<SubGraph>>;
 
   private:
     std::vector<std::shared_ptr<NodeBase>> nodes;
@@ -63,8 +63,8 @@ class Graph {
 };
 
 class SubGraph : public Graph {
-    friend class fmt::formatter<SubGraph>;
-    friend class fmt::formatter<std::shared_ptr<SubGraph>>;
+    friend struct fmt::formatter<SubGraph>;
+    friend struct fmt::formatter<std::shared_ptr<SubGraph>>;
 
     std::vector<std::shared_ptr<SubGraph>> input_graphs;           // 输入图
     std::vector<std::multimap<std::string, std::string>> inputs;   // 各图输入

@@ -173,7 +173,7 @@ std::map<int, SubGraph> CreateSubgraph(std::map<std::string, Nodevalue>& sub_gra
         }
         sub_graphs.insert(std::pair<int, SubGraph>(i, sub_graph));
     }
-    if (subgraph_num != sub_graphs.size()) {
+    if (subgraph_num != static_cast<int>(sub_graphs.size())) {
         std::cout << "subgraph_num is " << subgraph_num << std::endl;
         std::cout << "subgraphs'size is " << sub_graphs.size() << std::endl;
         std::cout << "error:they are different!!!" << std::endl;
@@ -182,7 +182,7 @@ std::map<int, SubGraph> CreateSubgraph(std::map<std::string, Nodevalue>& sub_gra
     // //获取子图连接信息
     for (auto& iter : sub_graphs) {
         SubGraph& current_sub_graph = iter.second;
-        auto current_sub_graph_num = iter.first;
+        // auto current_sub_graph_num = iter.first;
         auto current_nodes = current_sub_graph.Nodes();
         // map<前驱的子图信息int 对应的节点输入map<string string>>
         std::map<int, std::multimap<std::string, std::string>> subgraph_op_input;  // before_node 前驱节点中第几个输出
