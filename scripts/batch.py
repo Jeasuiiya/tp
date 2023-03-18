@@ -30,6 +30,14 @@ def add_format_cc_argument(parser):
         r".*\.((((c|C)(c|pp|xx|\+\+)?$)|((h|H)h?(pp|xx|\+\+)?$))|(ino|pde|proto|cu))$",
     )
     parser.add_argument(
+        "--regex-cmake",
+        dest="regex",
+        action="store_const",
+        const=r"(^(./)?CMakeLists.txt$)|(^(./)?ccsrc/.*/CMakeLists.txt$)|(^(./)?cmake/[^(third_party)].*cmake$)",
+        help="Specify cc regex for filename: "
+        r"(^(./)?CMakeLists.txt$)|(^(./)?ccsrc/.*/CMakeLists.txt$)|(^(./)?cmake/[^(third_party)].*cmake$)",
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         default=False,
@@ -95,18 +103,19 @@ def main(argv):
     if max_task == 0:
         max_task = multiprocessing.cpu_count()
 
-    def walk_dir(dir):
-        for root, dirs, files in os.walk(dir):
-            for name in files:
-                yield os.path.join(root, name)
+    def file_or_dir(path):
+        if os.path.isfile(path):
+            yield path
+        elif os.path.isdir(path):
+            for root, _, files in os.walk(path):
+                for name in files:
+                    yield os.path.join(root, name)
 
-    files = []
-    for f in args.file:
-        if os.path.isfile(f):
-            files.append(args.file)
-        elif os.path.isdir(f):
-            files.append(walk_dir(f))
-    files = itertools.chain.from_iterable(files)
+    def walk_dir(paths):
+        for path in paths:
+            yield from file_or_dir(path)
+
+    files = walk_dir(args.file)
     file_name_re = re.compile(args.regex)
     return_code = 0
     try:
