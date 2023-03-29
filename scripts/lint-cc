@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
 set -e
 SCRIPT_DIR=$(cd "$(dirname "$0")" || exit;pwd)
-source ${SCRIPT_DIR}/configure
 
 if [ $# -eq 0 ]; then
-    echo "usage: [env:CLANG_PATH] [env:TIDY_FLAGS] format-cc [DIR] [BUILD_DIR]"
+    echo "usage: [env:CLANG_PATH] [env:TIDY_FLAGS] lint-cc [DIR] [BUILD_DIR]"
     exit 1
 fi
 
@@ -22,7 +21,7 @@ if [ -n "$2" ]; then
 fi
 
 if [ ! -f $BUILD_DIR/compile_commands.json ]; then
-    configure $BUILD_DIR
+    $SCRIPT_DIR/configure --build $BUILD_DIR
 fi
 
 $SCRIPT_DIR/run-clang-tidy -p $BUILD_DIR $TIDY_FLAGS $1

@@ -3,3 +3,6 @@ black
 cmakelang
 clang-format
 clang-tidy
+packaging
+requests
+numpy

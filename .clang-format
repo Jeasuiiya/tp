@@ -5,3 +5,5 @@ IndentWidth: 4
 ColumnLimit: 120
 AllowShortFunctionsOnASingleLine: Empty
 AllowShortLambdasOnASingleLine: Inline
+AlignOperands: Align
+BreakBeforeBinaryOperators: NonAssignment

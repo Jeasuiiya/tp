@@ -82,24 +82,4 @@
     DECL_GETTER_PROXY(SetterGetterName, ALL(Type), Proxy, SetterGetterName)
 #endif
 
-#define FRAMEWORK_STATUS_MACROS_CONCAT_NAME(x, y) FRAMEWORK_STATUS_MACROS_CONCAT_IMPL(x, y)
-#define FRAMEWORK_STATUS_MACROS_CONCAT_IMPL(x, y) x##y
-#define FRAMEWORK_ASSIGN_OR_RETURN_IMPL(statusor, lhs, rexpr) \
-    auto(statusor) = (rexpr);                                 \
-    if ((statusor).isErr()) {                                 \
-        return Err((statusor).unwrapErr());                   \
-    }                                                         \
-    (lhs) = std::move((statusor).unwrap())
-
-#define FRAMEWORK_ASSIGN_OR_RETURN(lhs, rexpr) \
-    FRAMEWORK_ASSIGN_OR_RETURN_IMPL(FRAMEWORK_STATUS_MACROS_CONCAT_NAME(_status_or_value, __COUNTER__), lhs, rexpr)
-
-#define FRAMEWORK_RETURN_IF_ERROR(...)  \
-    do {                                \
-        auto _r = (__VA_ARGS__);        \
-        if (_r.isErr()) {               \
-            return Err(_r.unwrapErr()); \
-        }                               \
-    } while (0)
-
 #endif /* ifndef FRAMEWORK_UTIL_H */

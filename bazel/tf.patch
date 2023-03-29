@@ -1,0 +1,32 @@
+diff --git tensorflow/BUILD tensorflow/BUILD
+index 6e6ab138a2f..faa7a1f02be 100644
+--- tensorflow/BUILD
++++ tensorflow/BUILD
+@@ -1103,7 +1103,14 @@ tf_cc_shared_library(
+         "//tensorflow/compiler/xla/stream_executor:stream_executor_impl",
+     ] + tf_additional_binary_deps(),
+     soversion = VERSION,
+-    static_deps = PACKAGE_STATIC_DEPS,
++    static_deps = PACKAGE_STATIC_DEPS + [
++        "@//:__subpackages__",
++        "@global_pybind11//:__subpackages__",
++        "@global_config_python//:__subpackages__",
++        "@fmt//:__subpackages__",
++        "@result//:__subpackages__",
++        "@range-v3//:__subpackages__",
++    ],
+     visibility = ["//visibility:public"],
+ )
+
+diff --git tensorflow/core/common_runtime/BUILD tensorflow/core/common_runtime/BUILD
+index 77e86d90f9c..ac60f71d906 100644
+--- tensorflow/core/common_runtime/BUILD
++++ tensorflow/core/common_runtime/BUILD
+@@ -1863,6 +1863,7 @@ tf_cuda_library(
+         ":step_stats_collector",
+         ":threadpool_device",
+         ":threadpool_device_factory",
++        "@framework//:TFAdapterPlacementPass",
+     ],
+ )
+

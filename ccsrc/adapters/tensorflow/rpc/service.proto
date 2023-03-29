@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package framework.rpc;
+import "ccsrc/adapters/tensorflow/rpc/graph.proto";
+
+message CallRequest {
+    Graph graph = 1;
+}
+
+message CallResponse {
+    Graph graph = 1;
+    bool success = 2;
+}
+
+service RpcService {
+    // RPC for invoking a registered function on remote server.
+    rpc Call(CallRequest) returns (CallResponse) {}
+}

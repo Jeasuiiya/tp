@@ -17,6 +17,7 @@ using formatable_t = std::enable_if_t<fmt::has_formatter<T, fmt::format_context>
 #if __cplusplus >= 202002L
 template <typename T>
 concept formatable = fmt::has_formatter<T, fmt::format_context>::value;
+
 // clang-format off
 template <typename T>
 concept ostreamable = formatable<T> && !std::is_convertible_v<T, std::string>;

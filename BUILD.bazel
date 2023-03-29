@@ -1,8 +1,39 @@
+load("@global_pybind11_bazel//:build_defs.bzl", "pybind_extension", "pybind_library")
+load("//:bazel/pybind11_defs.bzl", "py_extension")
+load("@org_tensorflow//tensorflow:tensorflow.bzl", "tf_cc_binary")
+load(
+    "@org_tensorflow//tensorflow/core/platform:build_config.bzl",
+    "tf_proto_library",
+)
+
+load("@rules_proto//proto:defs.bzl", "proto_library")
+load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_proto_library")
+load("@com_github_grpc_grpc//bazel:cc_grpc_library.bzl", "cc_grpc_library")
+
+py_binary(
+    main = "@org_tensorflow//:configure.py",
+    name = "tf_config",
+    srcs = [
+        "@org_tensorflow//:configure.py",
+    ],
+    data = [
+        "@org_tensorflow//:tools/tf_env_collect.sh",
+        "@org_tensorflow//:.bazelrc"
+    ]
+)
+
+FRAMEWORK_THIRD_COMMON_LIBS = ["@fmt", "@result", "@range-v3"]
+
+cc_library(
+    name = "ThirdCommon",
+    deps = FRAMEWORK_THIRD_COMMON_LIBS,
+)
+
 cc_library(
     name = "CommonHeaders",
     hdrs = glob(["ccsrc/common/include/**/*.hpp"]),
     includes = ["ccsrc/common/include"],
-    deps = ["@fmt", "@result", "@range-v3"]
+    deps = ["ThirdCommon"]
 )
 
 cc_library(
@@ -13,9 +44,183 @@ cc_library(
 )
 
 cc_library(
+    name = "TFAdapterHeaders",
+    hdrs = glob(
+        [
+            "ccsrc/adapters/include/adapters/tensorflow/**/*.hpp",
+            "ccsrc/adapters/include/adapters/tensorflow/**/*.h"
+        ]
+    ),
+    includes = ["ccsrc/adapters/include"],
+    strip_include_prefix = "ccsrc/adapters/include/",
+    deps = ["DistributedIRHeaders"]
+)
+cc_library(
+    name = "TFAdapterPlacementPass",
+    hdrs = ["ccsrc/adapters/include/adapters/tensorflow/pass/placement_pass.h"],
+    srcs = ["ccsrc/adapters/tensorflow/pass/placement_pass.cc"],
+    deps = [
+        "TFAdapterHeaders",
+        "rpc_client",
+        "@org_tensorflow//tensorflow/core/common_runtime:optimization_registry",
+    ],
+    includes = ["ccsrc/adapters/include"],
+    alwayslink = 1,
+)
+
+
+cc_library(
     name = "DistributedIR",
     srcs = glob(["ccsrc/DistributedIR/*.cc"]),
     deps = ["DistributedIRHeaders"]
 )
+cc_library(
+    name = "CostGraphHeaders",
+    hdrs = glob(["ccsrc/cost_graph/include/**/*.hpp"]),
+    includes = ["ccsrc/cost_graph/include"],
+    deps = ["DistributedIRHeaders"]
+)
+
+cc_library(
+    name = "CostGraph",
+    srcs = ["ccsrc/cost_graph/fusion/aware_fusion.cc"],
+    includes = ["ccsrc/cost_graph/include"],
+    deps = ["CostGraphHeaders"]
+)
+
+cc_library(
+    name = "PolicyHeaders",
+    hdrs = glob(["ccsrc/policy/include/**/*.hpp"]),
+    includes = ["ccsrc/policy/include"],
+    deps = ["CommonHeaders", "CostGraphHeaders", "@global_pybind11//:pybind11_embed"]
+)
+
+cc_library(
+    name = "Policy",
+    srcs = glob(["ccsrc/policy/aware/*.cc"]),
+    deps = ["PolicyHeaders"]
+)
+
+py_extension(
+    name = "_graph",
+    srcs = glob(["ccsrc/DistributedIR/python/*.cc"]),
+    deps = ["DistributedIR"],
+)
 
 
+tf_cc_binary(
+    name = "tf-run-graph",
+    srcs = [
+        "tools/tf_run_graph.cc",
+    ],
+    linkopts = select({
+        "//conditions:default": ["-lm"],
+    }),
+    deps = select({
+        "//conditions:default": [
+            "@org_tensorflow//tensorflow/core:core_cpu",
+            "@org_tensorflow//tensorflow/core:framework",
+            "@org_tensorflow//tensorflow/core:framework_internal",
+            "@org_tensorflow//tensorflow/core:lib",
+            "@org_tensorflow//tensorflow/core:protos_all_cc",
+            "@org_tensorflow//tensorflow/core:tensorflow",
+        ],
+    }),
+)
+
+# rpc_service_proto_genproto
+# rpc_service_cc_grpc_proto
+# rpc_service_cc_proto
+# rpc_service_proto_cc_impl
+# tf_proto_library(
+#     name = "rpc_service_proto",
+#     srcs = ["service.proto"],
+#     make_default_target_header_only = True,
+#     has_services = 1,
+#     cc_api_version = 2,
+#     cc_stubby_versions = ["2"],
+#     create_go_proto = False,
+#     create_grpc_library = True,
+#     create_java_proto = False,
+#     create_service = True,
+# )
+
+# proto for rpc service
+proto_library(
+    name = "rpc_service_proto",
+    srcs = ["ccsrc/adapters/tensorflow/rpc/service.proto"],
+    deps = [":graph_proto"]
+)
+
+# proto for rpc CallRequest and CallResponse argument
+proto_library(
+    name = "graph_proto",
+    srcs = ["ccsrc/adapters/tensorflow/rpc/graph.proto"],
+)
+
+
+cc_proto_library(
+    name = "graph_proto_cc_impl",
+    deps = [":graph_proto"],
+)
+
+cc_library(
+    name = "graph_proto_cc",
+    includes = ["ccsrc"],
+    deps = ["graph_proto_cc_impl"]
+)
+
+
+cc_proto_library(
+    name = "rpc_service_proto_cc_impl",
+    deps = [":rpc_service_proto"],
+)
+
+cc_grpc_library(
+    name = "rpc_service_cc_grpc_proto",
+    srcs = [":rpc_service_proto"],
+    grpc_only = True,
+    deps = [":rpc_service_proto_cc_impl"],
+)
+
+cc_library(
+    name = "rpc_service_cc",
+    includes = ["ccsrc"],
+    deps = ["rpc_service_proto_cc_impl", "rpc_service_cc_grpc_proto"]
+)
+
+cc_library(
+    name = "rpc_util",
+    srcs = ["ccsrc/adapters/tensorflow/rpc/util.cc"],
+    hdrs = ["ccsrc/adapters/include/adapters/tensorflow/rpc/util.h"],
+    strip_include_prefix = "ccsrc/adapters/include/",
+    deps = ["graph_proto_cc", "DistributedIR"]
+)
+
+cc_binary(
+    name = "rpc_server",
+    srcs = ["ccsrc/adapters/tensorflow/rpc/server.cc"],
+    deps = [
+        "Policy",
+        "CostGraph",
+        "rpc_util",
+        "rpc_service_cc",
+        "@fmt",
+        "@com_github_grpc_grpc//:grpc++",
+        "@com_google_protobuf//:protobuf",
+    ]
+)
+
+cc_library(
+    name = "rpc_client",
+    srcs = ["ccsrc/adapters/tensorflow/rpc/client.cc"],
+    hdrs = ["ccsrc/adapters/include/adapters/tensorflow/rpc/client.h"],
+    strip_include_prefix = "ccsrc/adapters/include/",
+    deps = [
+        "rpc_util",
+        "rpc_service_cc",
+        "@fmt",
+        "@com_github_grpc_grpc//:grpc++",
+        "@com_google_protobuf//:protobuf",
+    ]
+)

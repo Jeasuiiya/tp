@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package framework.rpc;
+
+message Node {
+    string op = 1;
+    string name = 2;
+    string device = 3;
+    repeated string inputs = 4;
+    repeated string outputs = 5;
+    repeated string inputs_data = 6;
+    repeated string outputs_data = 7;
+    map<string, string> attr = 8;
+}
+
+message Graph {
+    repeated Node node = 1;
+}

@@ -1,7 +1,6 @@
-bazel-bin
-bazel-framework
-bazel-out
-bazel-testlogs
+bazel-*
+*.bazelrc
+!.bazelrc
 build/
 .cache
 .vscode

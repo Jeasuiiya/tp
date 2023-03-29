@@ -1,9 +1,10 @@
 # require CPM
 include(CPM)
-
+# cmake-lint: disable=C0103
 # fetch_pybind11
 function(fetch_pybind11)
   if(NOT TARGET pybind11::pybind11)
+    set(Python_EXECUTABLE ${PYTHON_EXECUTABLE} PARENT_SCOPE)
     CPMAddPackage(
       NAME pybind11
       GITHUB_REPOSITORY pybind/pybind11

@@ -1,7 +1,9 @@
 #pragma once
-#ifndef _FRAMEWORK_CLUSTER_SERVER_H
-#define _FRAMEWORK_CLUSTER_SERVER_H
+#ifndef FRAMEWORK_CLUSTER_SERVER_H
+#define FRAMEWORK_CLUSTER_SERVER_H
 
+#include <common/util.hpp>
+#include <string>
 #include <vector>
 
 namespace framework {
@@ -11,28 +13,49 @@ enum class DeviceStatus {
 };
 enum class DeviceType { Cpu, NVGpu, AMDGpu, Ascend };
 class Device {
-    DeviceStatus status;  // 设备使用状态
-    DeviceType type;      // 设备类型
-    std::string name;     // 设备逻辑名称
-    long memory;          // 设备总内存
-    long usedMemory;      // 已使用内存
+  private:
+    DeviceStatus status;   // 设备使用状态
+    DeviceType type;       // 设备类型
+    std::string name;      // 设备逻辑名称
+    int64_t memory;        // 设备总内存
+    int64_t free_memory;   // 已使用内存
+    int64_t execute_time;  // 设备的执行时间
+
+  public:
+    Device() = default;
+    Device(DeviceStatus _status, DeviceType _type, std::string _name, int64_t _memory, int64_t _free_memory,
+           int64_t _execute_time)
+        : status(std::move(_status)),
+          type(std::move(_type)),
+          name(std::move(_name)),
+          memory(std::move(_memory)),
+          free_memory(std::move(_free_memory)),
+          execute_time(std::move(_execute_time)){};
+    virtual ~Device() = default;
+
+    DECL_ACCESSOR(GetStatus, SetStatus, DeviceStatus, status, M)
+    DECL_ACCESSOR(GetType, SetType, DeviceType, type, M)
+    DECL_ACCESSOR(GetName, SetName, std::string, name, M)
+    DECL_ACCESSOR(GetMemory, SetMemory, int64_t, memory, M)
+    DECL_ACCESSOR(GetFreeMemory, SetFreeMemory, int64_t, free_memory, M)
+    DECL_ACCESSOR(GetExecuteTime, SetExecuteTime, int64_t, execute_time, M)
 };
 
-enum class LinkType { PCIE, NVLink, Eth };
-class Link {
-    LinkType type;                 // 链接类型
-    std::vector<Device*> devices;  // 可用设备
-    long totalBandwidth;           // 共享总带宽
-};
+// enum class LinkType { PCIE, NVLink, Eth };
+// class Link {
+//     LinkType type;                 // 链接类型
+//     std::vector<Device*> devices;  // 可用设备
+//     long totalBandwidth;           // 共享总带宽
+// };
 
-class Server {
-    DeviceStatus status;          // 设备使用状态
-    std::string name;             // 服务器逻辑名称
-    std::vector<Device> devices;  // 计算设备
-    long usedMemory;              // 已使用内存
-    long totalMemory;             // 总内存
-    std::vector<Link> links;      // 链接
-};
+// class Server {
+//     DeviceStatus status;          // 设备使用状态
+//     std::string name;             // 服务器逻辑名称
+//     std::vector<Device> devices;  // 计算设备
+//     long usedMemory;              // 已使用内存
+//     long totalMemory;             // 总内存
+//     std::vector<Link> links;      // 链接
+// };
 
 };  // namespace framework
 

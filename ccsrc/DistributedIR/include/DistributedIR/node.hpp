@@ -81,6 +81,12 @@ class NodeBase {
     void AddOutput(const std::string& output) {
         outputs.push_back(output);
     }
+    void AddInputsData(const std::string& input_data) {
+        inputs_data.push_back(input_data);
+    }
+    void AddOutputsData(const std::string& output_data) {
+        outputs_data.push_back(output_data);
+    }
 };
 
 class MergedNode : public NodeBase {
