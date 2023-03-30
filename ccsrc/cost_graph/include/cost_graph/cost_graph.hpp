@@ -1,9 +1,10 @@
-#include <DistributedIR/graph.hpp>
-#include <DistributedIR/node.hpp>
-#include <common/util.hpp>
 #include <map>
 #include <string>
 #include <vector>
+
+#include "DistributedIR/graph.hpp"
+#include "DistributedIR/node.hpp"
+#include "common/util.hpp"
 
 #ifndef FRAMEWORK_COST_GRAPH_COST_GRAPH_HPP
 #define FRAMEWORK_COST_GRAPH_COST_GRAPH_HPP
@@ -26,9 +27,9 @@ class CostEdge {
 
     virtual ~CostEdge() = default;
 
-    DECL_ACCESSOR(GetLeftNode, SetLeftNode, std::string, left_node, M)
-    DECL_ACCESSOR(GetRightNode, SetRightNode, std::string, right_node, M)
-    DECL_ACCESSOR(GetCommCost, SetCommCost, long, comm_cost, M)
+    DECL_ACCESSOR(GetLeftNode, SetLeftNode, left_node, M)
+    DECL_ACCESSOR(GetRightNode, SetRightNode, right_node, M)
+    DECL_ACCESSOR(GetCommCost, SetCommCost, comm_cost, M)
 };
 
 class CostNode {
@@ -87,17 +88,17 @@ class CostNode {
 
     virtual ~CostNode() = default;
 
-    DECL_ACCESSOR(GetName, SetName, std::string, name, M)
-    DECL_ACCESSOR(GetDevice, SetDevice, std::string, device, M)
-    DECL_ACCESSOR(GetComputeCost, SetComputeCost, int64_t, compute_cost, M)
-    DECL_ACCESSOR(GetMemoryCost, SetMemoryCost, int64_t, memory_cost, M)
-    DECL_ACCESSOR(GetOutputMemory, SetOutputMemory, int64_t, memory_cost, M)
-    DECL_ACCESSOR(GetInputs, SetInputs, std::vector<std::string>, inputs, M)
-    DECL_ACCESSOR(GetOutputs, SetOutputs, std::vector<std::string>, outputs, M)
-    DECL_ACCESSOR(GetInputCommCosts, SetInputCommCosts, std::vector<int64_t>, input_comm_costs, M)
-    DECL_ACCESSOR(GetOutputCommCosts, SetOutputCommCosts, std::vector<int64_t>, output_comm_costs, M)
-    DECL_ACCESSOR(GetStartTime, SetStartTime, int64_t, start_time, M)
-    DECL_ACCESSOR(GetEndTime, SetEndTime, int64_t, end_time, M)
+    DECL_ACCESSOR(GetName, SetName, name, M)
+    DECL_ACCESSOR(GetDevice, SetDevice, device, M)
+    DECL_ACCESSOR(GetComputeCost, SetComputeCost, compute_cost, M)
+    DECL_ACCESSOR(GetMemoryCost, SetMemoryCost, memory_cost, M)
+    DECL_ACCESSOR(GetOutputMemory, SetOutputMemory, memory_cost, M)
+    DECL_ACCESSOR(GetInputs, SetInputs, inputs, M)
+    DECL_ACCESSOR(GetOutputs, SetOutputs, outputs, M)
+    DECL_ACCESSOR(GetInputCommCosts, SetInputCommCosts, input_comm_costs, M)
+    DECL_ACCESSOR(GetOutputCommCosts, SetOutputCommCosts, output_comm_costs, M)
+    DECL_ACCESSOR(GetStartTime, SetStartTime, start_time, M)
+    DECL_ACCESSOR(GetEndTime, SetEndTime, end_time, M)
 };
 
 class MergedCostNode : public CostNode {
@@ -115,8 +116,8 @@ class MergedCostNode : public CostNode {
         cost_node_names.push_back(node.GetName());
     }
 
-    DECL_ACCESSOR(GetCostNodes, SetCostNodes, std::vector<CostNode>, cost_nodes, M)
-    DECL_ACCESSOR(GetCostNodeNames, SetCostNodeNames, std::vector<std::string>, cost_node_names, M)
+    DECL_ACCESSOR(GetCostNodes, SetCostNodes, cost_nodes, M)
+    DECL_ACCESSOR(GetCostNodeNames, SetCostNodeNames, cost_node_names, M)
 };
 
 class MergedCostGraph {
@@ -131,9 +132,8 @@ class MergedCostGraph {
         : merged_cost_nodes(std::move(_merged_cost_nodes)), merged_cost_node_map(std::move(_merged_cost_node_map)) {}
     virtual ~MergedCostGraph() = default;
 
-    DECL_ACCESSOR(GetMergedCostNodes, SetMergedCostNodes, std::vector<MergedCostNode>, merged_cost_nodes, M)
-    DECL_ACCESSOR(GetMergedCostNodeMap, SetMergedCostNodeMap, ALL(std::map<std::string, MergedCostNode&>),
-                  merged_cost_node_map, M)
+    DECL_ACCESSOR(GetMergedCostNodes, SetMergedCostNodes, merged_cost_nodes, M)
+    DECL_ACCESSOR(GetMergedCostNodeMap, SetMergedCostNodeMap, merged_cost_node_map, M)
 };
 
 class CostGraph {
@@ -149,8 +149,8 @@ class CostGraph {
         : cost_nodes(std::move(_cost_nodes)), cost_node_map(std::move(_cost_node_map)) {}
     virtual ~CostGraph() = default;
 
-    DECL_ACCESSOR(GetCostNodes, SetMergedCostNodes, std::vector<CostNode>, cost_nodes, M)
-    DECL_ACCESSOR(GetCostNodeMap, SetCostNodeMap, ALL(std::map<std::string, CostNode&>), cost_node_map, M)
+    DECL_ACCESSOR(GetCostNodes, SetMergedCostNodes, cost_nodes, M)
+    DECL_ACCESSOR(GetCostNodeMap, SetCostNodeMap, cost_node_map, M)
 };
 }  // namespace framework
 #endif

@@ -33,9 +33,9 @@ def add_format_cc_argument(parser):
         "--regex-cmake",
         dest="regex",
         action="store_const",
-        const=r"(^(./)?CMakeLists.txt$)|(^(./)?ccsrc/.*/CMakeLists.txt$)|(^(./)?cmake/[^(third_party)].*cmake$)",
+        const=r"(^(./)?CMakeLists.txt$)|(^(./)?((ccsrc)|(tests))/.*/CMakeLists.txt$)|(^(./)?cmake/[^(third_party)].*cmake$)",
         help="Specify cc regex for filename: "
-        r"(^(./)?CMakeLists.txt$)|(^(./)?ccsrc/.*/CMakeLists.txt$)|(^(./)?cmake/[^(third_party)].*cmake$)",
+        r"(^(./)?CMakeLists.txt$)|(^(./)?((ccsrc)|(tests))/.*/CMakeLists.txt$)|(^(./)?cmake/[^(third_party)].*cmake$)",
     )
     parser.add_argument(
         "--dry-run",

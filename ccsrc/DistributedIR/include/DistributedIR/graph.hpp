@@ -2,9 +2,11 @@
 #define FRAMEWORK_GRAPH_GRAPH_H
 
 #include <memory>
+#include <string>
 #include <vector>
 
 #include "common/fmt.hpp"
+#include "common/types.hpp"
 #include "common/util.hpp"
 #include "fmt/core.h"
 #include "fmt/format.h"
@@ -12,14 +14,17 @@
 #include "node.hpp"
 namespace framework {
 class SubGraph;
+using SubGraphPtr = std::shared_ptr<SubGraph>;
+using SubGraphWeakPtr = std::weak_ptr<SubGraph>;
 class Graph {
     friend struct fmt::formatter<Graph>;
     friend struct fmt::formatter<SubGraph>;
-    friend struct fmt::formatter<std::shared_ptr<SubGraph>>;
+    friend struct fmt::formatter<SubGraphPtr>;
 
   private:
-    std::vector<std::shared_ptr<NodeBase>> nodes;
-    std::map<std::string, std::shared_ptr<NodeBase>> node_map;
+    std::vector<NodePtr> nodes;
+    std::map<std::string, NodePtr> node_map;
+    std::vector<StrAndInt> returns;
 
   public:
     Graph() = default;
@@ -32,8 +37,9 @@ class Graph {
         }
     }
     Graph(Graph&& g) noexcept : nodes(std::move(g.nodes)), node_map(std::move(g.node_map)) {}
-    DECL_ACCESSOR(Nodes, Nodes, std::vector<std::shared_ptr<NodeBase>>, nodes, M)
-    DECL_ACCESSOR(NodeMap, NodeMap, ALL(std::map<std::string, std::shared_ptr<NodeBase>>), node_map, M)
+    DECL_ACCESSOR(Nodes, Nodes, nodes, M)
+    DECL_ACCESSOR(NodeMap, NodeMap, node_map, M)
+    // DECL_ACCESSOR(Outputs,  Outputs, outputs, M)
     void AddNode(NodeBase node) {
         auto n = std::make_shared<NodeBase>(node);
         node_map.insert({node.Name(), n});
@@ -45,55 +51,96 @@ class Graph {
         nodes.insert(nodes.begin() + at, n);
     }
 
-    void AddNode(const std::shared_ptr<NodeBase>& node) {
+    void AddNode(const NodePtr& node) {
         node_map.insert({node->Name(), node});
         nodes.push_back(node);
     }
-    void AddNode(int at, const std::shared_ptr<NodeBase>& node) {
+    void AddNode(int at, const NodePtr& node) {
         node_map.insert({node->Name(), node});
         nodes.insert(nodes.begin() + at, node);
     }
 
-    std::shared_ptr<NodeBase>& GetNode(int at) {
+    cpp::result<NodePtr&, Error> GetNode(uint at) {
+        if (at >= nodes.size()) {
+            return cpp::fail<Error>(Kind::Invalid, "out of range");
+        }
         return nodes.at(at);
     }
-    std::shared_ptr<NodeBase>& GetNode(const std::string& name) {
+    cpp::result<NodePtr&, Error> GetNode(const std::string& name) {
+        auto find = node_map.find(name);
+        if (find == node_map.end()) {
+            return cpp::fail<Error>(Kind::Invalid, fmt::format("no such node: {}", name));
+        }
         return node_map.find(name)->second;
     }
+    int GetNodesNum() {
+        return nodes.size();
+    }
+    void AddReturn(const StrAndInt& r) {
+        returns.push_back(r);
+    }
+    void ClearReturn() {
+        returns.clear();
+    }
+    DECL_GETTER(Returns, returns)
+    void ClearNode() {
+        node_map.clear();
+        nodes.clear();
+    }
 };
-
 class SubGraph : public Graph {
     friend struct fmt::formatter<SubGraph>;
-    friend struct fmt::formatter<std::shared_ptr<SubGraph>>;
+    friend struct fmt::formatter<SubGraphPtr>;
 
-    std::vector<std::shared_ptr<SubGraph>> input_graphs;           // 输入图
-    std::vector<std::multimap<std::string, std::string>> inputs;   // 各图输入
-    std::vector<std::shared_ptr<SubGraph>> output_graphs;          // 输出图
-    std::vector<std::multimap<std::string, std::string>> outputs;  // 输出
-
+    std::vector<SubGraphWeakPtr> input_graphs;                          // 输入图
+    std::vector<std::vector<std::pair<StrAndInt, StrAndInt>>> inputs;   // 各图输入
+    std::vector<SubGraphWeakPtr> output_graphs;                         // 输出图
+    std::vector<std::vector<std::pair<StrAndInt, StrAndInt>>> outputs;  // 输出
+    // std::vector<std::multimap<StrAndInt, StrAndInt>> outputs;          // 输出
   public:
-    void AddInputGraph(const std::shared_ptr<SubGraph>& g) {
+    SubGraph() = default;
+    SubGraph(const SubGraph& g) = default;
+    SubGraph& operator=(const SubGraph& g) {
+        input_graphs = g.input_graphs;
+        inputs = g.inputs;
+        output_graphs = g.output_graphs;
+        outputs = g.outputs;
+        return *this;
+    }
+    std::string Device() {
+        // SubGraph has 1 node at least.
+        assert(!Nodes().empty());
+        auto r = GetNode(0);
+        assert(r.has_value());
+        return r.value()->Device();
+    }
+    void AddInputGraph(const SubGraphPtr& g) {
         input_graphs.push_back(g);
     }
     void AddInputGraph(const SubGraph& g) {
-        input_graphs.push_back(std::make_shared<SubGraph>(g));
+        AddInputGraph(std::make_shared<SubGraph>(g));
     }
-    void AddOutputGraph(const std::shared_ptr<SubGraph>& g) {
+    void AddOutputGraph(const SubGraphPtr& g) {
         output_graphs.push_back(g);
     }
     void AddOutputGraph(const SubGraph& g) {
-        output_graphs.push_back(std::make_shared<SubGraph>(g));
+        AddOutputGraph(std::make_shared<SubGraph>(g));
     }
 
-    void AddInput(const std::multimap<std::string, std::string>& op_op) {
+    void AddInput(const std::vector<std::pair<StrAndInt, StrAndInt>>& op_op) {
         inputs.push_back(op_op);
     }
-    void AddOutput(const std::multimap<std::string, std::string>& op_op) {
+    void AddOutput(const std::vector<std::pair<StrAndInt, StrAndInt>>& op_op) {
         outputs.push_back(op_op);
     }
 
-    DECL_GETTER(GetInputs, ALL(std::vector<std::multimap<std::string, std::string>>), inputs)
-    DECL_GETTER(GetOutputs, ALL(std::vector<std::multimap<std::string, std::string>>), outputs)
+    // using Graph::AddReturn;
+    // using Graph::ClearReturn;
+    // using Graph::Returns;
+    DECL_GETTER(GetInputs, inputs)
+    DECL_GETTER(GetInputGraphs, input_graphs)
+    DECL_GETTER(GetOutputs, outputs)
+    DECL_GETTER(GetOutputGraphs, output_graphs)
 };
 
 }  // namespace framework
@@ -107,20 +154,32 @@ struct fmt::formatter<framework::Graph> {
 
     template <typename FormatContext>
     auto format(const framework::Graph& g, FormatContext& ctx) const -> decltype(ctx.out()) {
-        return fmt::format_to(ctx.out(), "Graph(nodes={})", g.nodes);
+        auto nodes = g.nodes | ranges::views::transform([](auto& i) { return fmt_shared(i); });
+        return fmt::format_to(ctx.out(), "Graph(nodes={}, outputs={})", nodes, g.returns);
     }
 };
 
 template <>
-struct fmt::formatter<framework::SubGraph> {
-    static constexpr auto parse(format_parse_context& ctx) -> decltype(ctx.begin()) {
-        return ctx.end();
-    }
-
+struct fmt::formatter<framework::SubGraph> : public fmt::formatter<ShortFormat> {
     template <typename FormatContext>
     auto format(const framework::SubGraph& g, FormatContext& ctx) const -> decltype(ctx.out()) {
-        return fmt::format_to(ctx.out(), "Graph(nodes={}, input_graphs={}, inputs={}, output_graphs={}, outputs={})",
-                              g.nodes, g.input_graphs, g.inputs, g.output_graphs, g.outputs);
+        auto nodes = g.nodes | ranges::views::transform([](auto& i) { return fmt_shared(i); });
+        {
+            if (presentation == 's') {
+                auto input_graphs =
+                    g.input_graphs | ranges::views::transform([](auto& i) { return fmt::ptr(i.lock().get()); });
+                auto output_graphs =
+                    g.output_graphs | ranges::views::transform([](auto& i) { return fmt::ptr(i.lock().get()); });
+                return fmt::format_to(
+                    ctx.out(), "SubGraph({}, nodes={}, input_graphs={}, inputs={}, output_graphs={}, outputs={})",
+                    fmt::ptr(&g), nodes, input_graphs, g.inputs, output_graphs, g.outputs);
+            }
+        }
+        auto input_graphs = g.input_graphs | ranges::views::transform([](auto& i) { return fmt_weak(i); });
+        auto output_graphs = g.output_graphs | ranges::views::transform([](auto& i) { return fmt_weak(i); });
+        return fmt::format_to(ctx.out(),
+                              "SubGraph({}, nodes={}, input_graphs={}, inputs={}, output_graphs={}, outputs={})",
+                              fmt::ptr(&g), nodes, input_graphs, g.inputs, output_graphs, g.outputs);
     }
 };
 // NOLINTEND(readability-identifier-naming)

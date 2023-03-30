@@ -1,4 +1,4 @@
-#include <fusion/aware_fusion.h>
+#include "fusion/aware_fusion.h"
 
 #include <algorithm>
 #include <iostream>
@@ -55,7 +55,9 @@ MergedCostGraph AwareFusion::GenerateFusedGraph() {
         left_node_name = node_to_group[left_node_name];
         right_node_name = node_to_group[right_node_name];
 
-        if (left_node_name == right_node_name) continue;
+        if (left_node_name == right_node_name) {
+            continue;
+        }
 
         MergedCostNode& left_node = merged_cost_node_map[left_node_name];
         MergedCostNode& right_node = merged_cost_node_map[right_node_name];
@@ -72,7 +74,9 @@ MergedCostGraph AwareFusion::GenerateFusedGraph() {
         std::vector<std::string>& left_node_merged_node_names = left_node.GetCostNodeNames();
         std::vector<std::string>& right_node_merged_node_names = right_node.GetCostNodeNames();
 
-        if (left_node_out_degree != 1 && right_node_in_degree != 1) continue;
+        if (left_node_out_degree != 1 && right_node_in_degree != 1) {
+            continue;
+        }
 
         // 符合算子融合条件, 开始算子融合 (右节点融合到左节点里面去)
         // 融合 compute_cost, memory_cost, input 和 output
@@ -80,10 +84,18 @@ MergedCostGraph AwareFusion::GenerateFusedGraph() {
         left_node.SetMemoryCost(right_node.GetMemoryCost() + left_node.GetMemoryCost());
         left_node.SetOutputMemory(right_node.GetOutputMemory() + left_node.GetOutputMemory());
 
-        for (auto& input : left_node_inputs) input = node_to_group[input];
-        for (auto& output : left_node_outputs) output = node_to_group[output];
-        for (auto& input : right_node_inputs) input = node_to_group[input];
-        for (auto& output : right_node_outputs) output = node_to_group[output];
+        for (auto& input : left_node_inputs) {
+            input = node_to_group[input];
+        }
+        for (auto& output : left_node_outputs) {
+            output = node_to_group[output];
+        }
+        for (auto& input : right_node_inputs) {
+            input = node_to_group[input];
+        }
+        for (auto& output : right_node_outputs) {
+            output = node_to_group[output];
+        }
 
         // 融合边集
         for (unsigned int i = 0; i < right_node_inputs.size(); i++) {

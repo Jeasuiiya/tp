@@ -8,6 +8,7 @@
 #include <iostream>
 #include <list>
 #include <map>
+#include <set>
 
 #include "common/error.hpp"
 #include "common/result_macro.hpp"
@@ -18,7 +19,7 @@ namespace framework {
 
 class Nodevalue {
   public:
-    NodeBase node;
+    NodePtr node;
     bool device_in = false;                    // 默认不是device_in算子
     bool device_out = false;                   // 默认不是device_out算子
     std::vector<std::string> device_in_node;   // 同设备的前驱算子
@@ -36,15 +37,15 @@ cpp::result<void, Error> SubgraphSearch(std::map<std::string, Nodevalue>& sub_gr
                                         std::vector<std::string>& device_in, std::vector<std::string>& device_out);
 // 广度优先搜索图，并且给对应算子标记子图编号
 void NodeBfs(std::map<std::string, Nodevalue>& sub_graph_info, int subgraph_num, std::vector<std::string>& joint_nodes,
-             std::multimap<int, NodeBase>& nodes_to_subgraph);
+             std::multimap<int, NodePtr>& nodes_to_subgraph);
 // 获取子图编号
 int CreateSubgraphNum(std::map<std::string, Nodevalue>& sub_graph_info,
-                      std::multimap<int, NodeBase>& nodes_to_subgraph);
+                      std::map<int, std::set<NodePtr>>& nodes_to_subgraph);
 // 生成子图并返回
-std::map<int, SubGraph> CreateSubgraph(std::map<std::string, Nodevalue>& sub_graph_info,
-                                       std::multimap<int, NodeBase>& nodes_to_subgraph, int subgraph_num);
+std::map<int, SubGraphPtr> CreateSubgraph(std::map<std::string, Nodevalue>& sub_graph_info,
+                                          std::multimap<int, NodeBase>& nodes_to_subgraph);
 // 入口函数
-cpp::result<std::map<int, SubGraph>, Error> DivideGraph(Graph graph);
+cpp::result<std::map<int, SubGraphPtr>, Error> DivideGraph(Graph graph);
 
 }  // namespace framework
 

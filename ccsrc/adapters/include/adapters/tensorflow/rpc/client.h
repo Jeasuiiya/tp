@@ -1,6 +1,4 @@
 #pragma once
-#include <grpcpp/grpcpp.h>
-
 #include <iostream>
 #include <memory>
 #include <string>
@@ -10,6 +8,7 @@
 #include "adapters/tensorflow/rpc/util.h"
 #include "common/error.hpp"
 #include "fmt/format.h"
+#include "grpcpp/grpcpp.h"
 #include "result.hpp"
 #ifndef ADAPTERS_TENSORFLOW_RPC_CLIENT_H
 #define ADAPTERS_TENSORFLOW_RPC_CLIENT_H

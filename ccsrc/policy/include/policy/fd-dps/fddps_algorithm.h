@@ -50,8 +50,8 @@ class FDDPSAlgorithm {
     static void UpdateScheduleableNodes(CostNode schedule_node, std::map<std::string, int64_t>* name_to_indegree,
                                         std::map<std::string, double>* name_to_priority);
 
-    DECL_ACCESSOR(GetCostGraph, SetCostGraph, CostGraph, cost_graph, M)
-    DECL_ACCESSOR(GetDevices, SetDevices, std::vector<Device>, devices, M)
+    DECL_ACCESSOR(GetCostGraph, SetCostGraph, cost_graph, M)
+    DECL_ACCESSOR(GetDevices, SetDevices, devices, M)
 };
 }  // namespace framework
 

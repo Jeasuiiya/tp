@@ -18,7 +18,8 @@ py_binary(
     ],
     data = [
         "@org_tensorflow//:tools/tf_env_collect.sh",
-        "@org_tensorflow//:.bazelrc"
+        "@org_tensorflow//:.bazelrc",
+        "@org_tensorflow//third_party/gpus:find_cuda_config.py",
     ]
 )
 

@@ -24,7 +24,7 @@ TF_PLACEMENT_RPC_ADDRESS=localhost:9001 ./bazel-bin/tf-run-graph --graph=/path/t
 
 环境变量
 
-`TF_PLACEMENT_POLICY`: 可选值：`aware`, `fddps`
+`TF_PLACEMENT_POLICY`: 可选值：`aware`, `fddps`  
 `TF_PLACEMENT_RPC_ADDRESS`: 使用aware方法时连接的RPC地址，需要提前运行`rpc_server`。例：`localhost:9001`, `unix://rpc_server.socket`
 
 
@@ -42,3 +42,40 @@ TF_PLACEMENT_RPC_ADDRESS=localhost:9001 ./bazel-bin/tf-run-graph --graph=/path/t
 pip install -r dev-requirements.txt
 ./scripts/build-tf
 ```
+
+## Jax
+
+### 编译
+
+需要至少`g++-9`以上
+
+其他依赖
+
+* cmake
+* ninja
+
+```bash
+pip install -r dev-requirements.txt
+./scripts/configure
+cd build && ninja
+```
+
+### 运行环境
+
+**依赖**
+jax>=0.4
+jaxlib>=0.4
+
+dcu 只能使用0.3版本，但0.3版本未测试
+
+**环境变量**
+
+暂未提供`setup.py`安装方式，需要将路径`python`注册为`python`的搜索路径
+
+```bash
+export PYTHONPATH=<PROJECT_ROOT>/python:<PROJECT_ROOT>/build/python
+```
+
+### 并行化
+
+对需要并行化的函数使用`parallelize`进行装饰，可参考[example/mnist.py](../../examples/mnist.py)

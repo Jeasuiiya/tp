@@ -1,14 +1,30 @@
+#include <pybind11/cast.h>
+#include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
+#include <DistributedIR/block.hpp>
 #include <DistributedIR/graph.hpp>
 #include <memory>
 #include <utility>
+
+#include "DistributedIR/dividegraph.hpp"
+#include "cluster/server.hpp"
+#include "common/fmt.hpp"
+#include "common/log.h"
+#include "common/types.hpp"
+#include "cost_graph/common.hpp"
+#include "cost_graph/cost_graph.hpp"
+#include "fmt/format.h"
+#include "policy/fd-dps/fddps_algorithm.h"
+#include "range/v3/algorithm/transform.hpp"
+#include "range/v3/range/conversion.hpp"
 
 #define STRINGIFY(x) #x
 #define MACRO_STRINGIFY(x) STRINGIFY(x)
 
 namespace framework::py {
+
 class Node {
   private:
     std::shared_ptr<framework::NodeBase> node_ptr;
@@ -35,6 +51,7 @@ class Node {
     }
     DECL_ACCESSOR_PROXY_S(SetName, GetName, std::string, node_ptr, Name, M)
     DECL_ACCESSOR_PROXY_S(SetOp, GetOp, std::string, node_ptr, Op, M)
+    DECL_ACCESSOR_PROXY_S(SetDevice, GetDevice, std::string, node_ptr, Device, M)
     DECL_ACCESSOR_PROXY_S(SetInputs, GetInputs, std::vector<std::string>, node_ptr, Inputs, M)
     DECL_ACCESSOR_PROXY_S(SetOutputs, GetOutputs, std::vector<std::string>, node_ptr, Outputs, M)
     DECL_ACCESSOR_PROXY_S(SetAttrs, GetAttrs, ALL(std::map<std::string, std::string>), node_ptr, Attrs, M)
@@ -45,11 +62,114 @@ class Node {
     DECL_ACCESSOR_PROXY_S(SetPersistentMemory, GetPersistentMemory, int64_t, node_ptr, PersistentMemory, M)
     DECL_ACCESSOR_PROXY_S(SetInputMemory, GetInputMemory, int64_t, node_ptr, InputMemory, M)
     DECL_ACCESSOR_PROXY_S(SetOutputMemory, GetOutputMemory, int64_t, node_ptr, OutputMemory, M)
+    DECL_GETTER_PROXY(GetInputPorts, node_ptr, InputPorts)
+    DECL_GETTER_PROXY(GetOutputPorts, node_ptr, OutputPorts)
     void AddInput(const std::string& input) {
         node_ptr->AddInput(std::move(input));
     }
     void AddOutput(const std::string& output) {
         node_ptr->AddOutput(std::move(output));
+    }
+    size_t InputSize() {
+        return node_ptr->InputSize();
+    }
+    size_t OutputSize() {
+        return node_ptr->OutputSize();
+    }
+    std::vector<int> InputIndexes() {
+        return node_ptr->InputPorts() | ranges::views::transform([](const auto& p) { return p.index; })
+               | ranges::to_vector;
+    }
+    std::vector<int> OutputIndexes() {
+        return node_ptr->OutputPorts() | ranges::views::transform([](const auto& p) { return p.index; })
+               | ranges::to_vector;
+    }
+    void AddInputPort(const std::string& input_node, int input_index, int index, DataType dtype, const shape_t& shape) {
+        auto r = node_ptr->AddInputPort(input_node, input_index, index, dtype, shape);
+        if (r.has_error()) {
+            throw std::invalid_argument(r.error().text);
+        }
+    }
+    void AddOutputPort(DataType dtype, const shape_t& shape, int index) {
+        auto r = node_ptr->AddOutputPort(dtype, shape, index);
+        if (r.has_error()) {
+            throw std::invalid_argument(r.error().text);
+        }
+    }
+    void AddOutputPortWithBuffer(DataType dtype, const shape_t& shape, int index, const pybind11::array& array) {
+        auto len = static_cast<size_t>(array.nbytes());
+        void* ptr = std::malloc(len);
+        auto info = array.request();
+        memcpy(ptr, info.ptr, len);
+        auto r = node_ptr->AddOutputPort(dtype, shape, index, ptr, len);
+        if (r.has_error()) {
+            throw std::invalid_argument(r.error().text);
+        }
+    }
+    StrAndInt GetInputRef(int index) {
+        auto r = node_ptr->InputPort(index);
+        if (r.has_error()) {
+            throw std::invalid_argument(r.error().text);
+        }
+        return r.value().entity.Ref();
+    }
+    StrAndInt GetInputName(int index) {
+        auto r = node_ptr->InputName(index);
+        if (r.has_error()) {
+            throw std::invalid_argument(r.error().text);
+        }
+        return r.value();
+    }
+    StrAndInt GetOutputName(int index) {
+        auto r = node_ptr->OutputName(index);
+        if (r.has_error()) {
+            throw std::invalid_argument(r.error().text);
+        }
+        return r.value();
+    }
+    DataType GetInputType(int index) {
+        auto r = node_ptr->InputPort(index);
+        if (r.has_error()) {
+            throw std::invalid_argument(r.error().text);
+        }
+        return r.value().entity.tensor.dtype;
+    }
+    shape_t GetInputShape(int index) {
+        auto r = node_ptr->InputPort(index);
+        if (r.has_error()) {
+            throw std::invalid_argument(r.error().text);
+        }
+        return r.value().entity.tensor.shape;
+    }
+    DataType GetOutputType(int index) {
+        auto r = node_ptr->OutputPort(index);
+        if (r.has_error()) {
+            throw std::invalid_argument(r.error().text);
+        }
+        return r.value().entity.dtype;
+    }
+    pybind11::array GetOutputValue(int index) {
+        auto r = node_ptr->OutputPort(index);
+        if (r.has_error()) {
+            throw std::invalid_argument(r.error().text);
+        }
+        auto& t = r.value().entity;
+        if (t.data == nullptr) {
+            return pybind11::none();
+        }
+        void* ptr = std::malloc(t.length);
+        memcpy(ptr, t.data, t.length);
+        // pass data by bytes
+        pybind11::buffer_info info(ptr, 1, pybind11::format_descriptor<uint8_t>::format(), t.length);
+
+        return pybind11::array(info);
+    }
+    shape_t GetOuputShape(int index) {
+        auto r = node_ptr->OutputPort(index);
+        if (r.has_error()) {
+            throw std::invalid_argument(r.error().text);
+        }
+        return r.value().entity.shape;
     }
     std::string ToString() {
         return fmt::to_string(node_ptr);
@@ -82,27 +202,120 @@ class Graph {
         graph_ptr->AddNode(at, node.NodePtr());
     }
 
-    Node GetNode(int at) {
-        return Node(graph_ptr->GetNode(at));
+    pybind11::object GetNode(int at, bool error = false) {
+        auto r = graph_ptr->GetNode(at);
+        if (r.has_error()) {
+            if (error) {
+                throw std::runtime_error(r.error().text);
+            }
+            return pybind11::none();
+        }
+        return pybind11::cast(new Node(r.value()));
     }
-    Node GetNode(const std::string& name) {
-        return Node(graph_ptr->GetNode(name));
+    pybind11::object GetNode(const std::string& name, bool error = false) {
+        auto r = graph_ptr->GetNode(name);
+        if (r.has_error()) {
+            if (error) {
+                throw std::runtime_error(r.error().text);
+            }
+            return pybind11::none();
+        }
+        return pybind11::cast(new Node(r.value()));
+    }
+    void AddReturn(const StrAndInt& r) {
+        graph_ptr->AddReturn(r);
+    }
+    void ClearOutput() {
+        graph_ptr->ClearReturn();
+    }
+    void ClearNode() {
+        graph_ptr->ClearNode();
     }
     std::string ToString() {
         return fmt::to_string(*graph_ptr);
     }
 };
+class SubGraph {
+  private:
+    std::shared_ptr<framework::SubGraph> subgraph_ptr;
+
+  public:
+    explicit SubGraph(framework::SubGraph& subgraph) {
+        subgraph_ptr = std::make_shared<framework::SubGraph>(subgraph);
+    }
+    explicit SubGraph(framework::SubGraphPtr subgraph) {
+        subgraph_ptr = std::move(subgraph);
+    }
+    std::shared_ptr<framework::SubGraph>& SubGraphPtr() {
+        return this->subgraph_ptr;
+    }
+    pybind11::object GetNode(int at, bool error = false) {
+        auto r = subgraph_ptr->GetNode(at);
+        if (r.has_error()) {
+            if (error) {
+                throw std::runtime_error(r.error().text);
+            }
+            return pybind11::none();
+        }
+        return pybind11::cast(new Node(r.value()));
+    }
+    pybind11::object GetNode(const std::string& name, bool error = false) {
+        auto r = subgraph_ptr->GetNode(name);
+        if (r.has_error()) {
+            if (error) {
+                throw std::runtime_error(r.error().text);
+            }
+            return pybind11::none();
+        }
+        return pybind11::cast(new Node(r.value()));
+    }
+    int GetNodesNum() {
+        return subgraph_ptr->GetNodesNum();
+    }
+    DECL_GETTER_PROXY(GetInputs, subgraph_ptr, GetInputs)
+    DECL_GETTER_PROXY(GetOutputs, subgraph_ptr, GetOutputs)
+
+    std::string ToString() {
+        return fmt::format("{:s}", subgraph_ptr);
+    }
+    ~SubGraph() = default;
+};
+
 };  // namespace framework::py
 
 namespace py = pybind11;
 using PyNode = framework::py::Node;
 using PyGraph = framework::py::Graph;
+using PySubGraph = framework::py::SubGraph;
+std::map<std::string, std::string> GetDeviceMapFromCostNodes(std::vector<framework::CostNode>& nodes) {
+    return nodes | ranges::views::transform([](auto& a) { return std::make_pair(a.GetName(), a.GetDevice()); })
+           | ranges::to<std::map<std::string, std::string>>();
+}
 PYBIND11_MODULE(PYBIND11_CURRENT_MODULE_NAME, m) {
+    framework::log::Init();
     m.doc() = R"pbdoc(
         python graph
         -----------------------
         .. currentmodule:: _graph
     )pbdoc";
+
+    py::enum_<framework::DataType>(m, "DataType")
+        .value("BOOL", framework::DataType::BOOL)
+        .value("U8", framework::DataType::U8)
+        .value("I8", framework::DataType::I8)
+        .value("U16", framework::DataType::U16)
+        .value("I16", framework::DataType::I16)
+        .value("U32", framework::DataType::U32)
+        .value("I32", framework::DataType::I32)
+        .value("U64", framework::DataType::U64)
+        .value("I64", framework::DataType::I64)
+        .value("F8E4M3FN", framework::DataType::F8E4M3FN)
+        .value("F8E5M2", framework::DataType::F8E5M2)
+        .value("BF16", framework::DataType::BF16)
+        .value("F16", framework::DataType::F16)
+        .value("F32", framework::DataType::F32)
+        .value("F64", framework::DataType::F64)
+        .value("Other", framework::DataType::Other);
 
     py::class_<PyNode>(m, "Node")
         .def(py::init())
@@ -113,8 +326,8 @@ PYBIND11_MODULE(PYBIND11_CURRENT_MODULE_NAME, m) {
             return n;
         }))
         .def_property("name", &PyNode::GetName, &PyNode::SetName)
-        // .def_property("name", &PyNode::Name, &PyNode::Name)
         .def_property("op", &PyNode::GetOp, &PyNode::SetOp)
+        .def_property("device", &PyNode::GetDevice, &PyNode::SetDevice)
         .def_property("inputs", &PyNode::GetInputs, &PyNode::SetInputs)
         .def_property("outputs", &PyNode::GetOutputs, &PyNode::SetOutputs)
         .def_property("attrs", &PyNode::GetAttrs, &PyNode::SetAttrs)
@@ -125,19 +338,131 @@ PYBIND11_MODULE(PYBIND11_CURRENT_MODULE_NAME, m) {
         .def_property("persistent_memory", &PyNode::GetPersistentMemory, &PyNode::SetPersistentMemory)
         .def_property("input_memory", &PyNode::GetInputMemory, &PyNode::SetInputMemory)
         .def_property("output_memory", &PyNode::GetOutputMemory, &PyNode::SetOutputMemory)
+        .def("input_indexes", &PyNode::InputIndexes)
+        .def("output_indexes", &PyNode::OutputIndexes)
+        .def("input_ref", &PyNode::GetInputRef)
+        .def("input_name", &PyNode::GetInputName)
+        .def("input_type", &PyNode::GetInputType)
+        .def("input_shape", &PyNode::GetInputShape)
+        .def("output_type", &PyNode::GetOutputType)
+        .def("output_shape", &PyNode::GetOuputShape)
+        .def("output_name", &PyNode::GetOutputName)
+        .def("output_value", &PyNode::GetOutputValue)
         .def("add_input", &PyNode::AddInput)
         .def("add_output", &PyNode::AddOutput)
+        .def("add_inputport", &PyNode::AddInputPort)
+        .def("add_outputport", &PyNode::AddOutputPort)
+        .def("add_outputport", &PyNode::AddOutputPortWithBuffer)
         .def("__repr__", &PyNode::ToString)
         .def("__str__", &PyNode::ToString);
+
     py::class_<PyGraph>(m, "Graph")
         .def(py::init())
         .def("add_node", py::overload_cast<PyNode&>(&PyGraph::AddNode))
         .def("add_node", py::overload_cast<int, PyNode&>(&PyGraph::AddNode))
-        .def("get_node", py::overload_cast<int>(&PyGraph::GetNode))
-        .def("get_node", py::overload_cast<const std::string&>(&PyGraph::GetNode))
+        .def("get_node", py::overload_cast<int, bool>(&PyGraph::GetNode), py::arg("index"), py::arg("error") = false)
+        .def("get_node", py::overload_cast<const std::string&, bool>(&PyGraph::GetNode), py::arg("name"),
+             py::arg("error") = false)
+        .def("add_return", &PyGraph::AddReturn)
+        .def_property_readonly("node_num", [](PyGraph& g) { return g.GraphPtr()->GetNodesNum(); })
+        .def_property_readonly("returns", [](PyGraph& g) { return g.GraphPtr()->Returns(); })
         .def("__repr__", &PyGraph::ToString)
         .def("__str__", &PyGraph::ToString);
 
+    py::class_<PySubGraph>(m, "SubGraph")
+        // .def(py::init([](PySubGraph& subgraph) { return new PySubGraph(subgraph); }))
+        // .def("get_subgraph_ptr", &PySubGraph::SubGraphPtr)
+        .def_property_readonly("nodes_num", &PySubGraph::GetNodesNum)
+        .def("get_node", py::overload_cast<int, bool>(&PySubGraph::GetNode), py::arg("index"), py::arg("error") = false)
+        .def("get_node", py::overload_cast<const std::string&, bool>(&PySubGraph::GetNode), py::arg("name"),
+             py::arg("error") = false)
+        .def_property_readonly("inputs", &PySubGraph::GetInputs)
+        .def_property_readonly("outputs", &PySubGraph::GetOutputs)
+        .def_property_readonly("input_graphs",
+                               [](PySubGraph& g) {
+                                   auto& a = g.SubGraphPtr()->GetInputGraphs();
+                                   return a | ranges::views::transform([](auto& i) { return PySubGraph(i.lock()); })
+                                          | ranges::to_vector;
+                               })
+        .def_property_readonly("output_graphs",
+                               [](PySubGraph& g) {
+                                   auto& a = g.SubGraphPtr()->GetOutputGraphs();
+                                   return a | ranges::views::transform([](auto& i) { return PySubGraph(i.lock()); })
+                                          | ranges::to_vector;
+                               })
+        .def("add_return", [](PySubGraph& g, const StrAndInt& r) { return g.SubGraphPtr()->AddReturn(r); })
+        .def_property_readonly("returns", [](PySubGraph& g) { return g.SubGraphPtr()->Returns(); })
+        .def("__str__", &PySubGraph::ToString)
+        .def("__repr__", [](PySubGraph& g) { return fmt::format("{:s}", fmt_shared(g.SubGraphPtr())); })
+        .def("__hash__", [](PySubGraph& g) { return std::hash<framework::SubGraphPtr>()(g.SubGraphPtr()); })
+        .def("__eq__",
+             [](PySubGraph& g, PySubGraph& other) { return g.SubGraphPtr().get() == other.SubGraphPtr().get(); });
+    using PyBlock = framework::Block;
+    py::class_<PyBlock>(m, "Block")
+        .def(py::init([](const std::string& device) { return framework::Block(device); }))
+        .def(py::init([](PySubGraph& graph) { return framework::Block(graph.SubGraphPtr()); }))
+        .def_property_readonly("id", [](PyBlock& b) { return b.Id(); })
+        .def_property_readonly("device", [](PyBlock& b) { return b.Device(); })
+        .def("__str__", [](PyBlock& b) { return fmt::to_string(b); })
+        .def("__repr__", [](PyBlock& b) { return fmt::format("{:s}", b); })
+        .def_property_readonly("graph", [](PyBlock& b) { return PySubGraph(b.GetSubGraph()); })
+        .def("add_inputport", [](PyBlock& b, int64_t blockId, int index, framework::DataType dtype,
+                                 framework::shape_t& shape) { b.AddInputPort(blockId, index, dtype, shape); })
+        .def("add_outputport",
+             [](PyBlock& b, framework::DataType dtype, framework::shape_t& shape) { b.AddOutputPort(dtype, shape); })
+        .def_property_readonly("inputports",
+                               [](PyBlock& block) {
+                                   return block.Inputs() | ranges::views::transform([](auto& i) {
+                                              return std::tuple(i.index, i.entity.source, i.entity.index,
+                                                                i.entity.tensor.dtype, i.entity.tensor.shape);
+                                          })
+                                          | ranges::to_vector;
+                               })
+        .def_property_readonly("outputports",
+                               [](PyBlock& block) {
+                                   return block.Outputs() | ranges::views::transform([](auto& i) {
+                                              return std::tuple(i.index, i.entity.dtype, i.entity.shape);
+                                          })
+                                          | ranges::to_vector;
+                               })
+        .def_property_readonly("inputports_size", [](PyBlock& block) { return block.Inputs().size(); })
+        .def_property_readonly("outputports_size", [](PyBlock& block) { return block.Outputs().size(); })
+        .def("__hash__", [](PyBlock& block) { return block.Id(); })
+        .def("__eq__", [](PyBlock& block, PyBlock& other) { return block.Id() == other.Id(); });
+    py::enum_<framework::DeviceType>(m, "DeviceType")
+        .value("cpu", framework::DeviceType::Cpu)
+        .value("gpu", framework::DeviceType::NVGpu)
+        .value("rocm", framework::DeviceType::AMDGpu)
+        .value("ascend", framework::DeviceType::Ascend);
+    using PyDevice = framework::Device;
+    py::class_<PyDevice>(m, "Device")
+        .def(py::init(
+            [](framework::DeviceType type, std::string name, int64_t memory, int64_t free_memory,
+               int64_t execute_time) { return PyDevice(type, std::move(name), memory, free_memory, execute_time); }))
+        .def("__str__", [](PyDevice& b) { return fmt::to_string(b); })
+        .def("__repr__", [](PyDevice& b) { return fmt::to_string(b); });
+
+    m.def("divide_graph", [](PyGraph& graph) {
+        auto r = framework::DivideGraph(*graph.GraphPtr());
+        if (r.has_error()) {
+            throw std::runtime_error(r.error().text);
+        }
+        return r.value() | ranges::views::values | ranges::views::transform([](auto& g) { return PySubGraph(g); })
+               | ranges::to_vector;
+        // return r.value() | ranges::views::values | ranges::to_vector;
+    });
+    m.def("search_policy", [](PyGraph& graph, std::vector<PyDevice> devices) -> pybind11::object {
+        spdlog::debug("devices:{}", devices);
+        framework::CostGraph cost_graph = framework::ConvertGraphToCostGraph(*graph.GraphPtr());
+        framework::FDDPSAlgorithm fddps_algorithm(cost_graph, std::move(devices));
+        auto r = fddps_algorithm.Placement();
+        if (r.has_error()) {
+            spdlog::error("call fddps error. {}", r.error().text);
+            return pybind11::none();
+        }
+        auto device_map = GetDeviceMapFromCostNodes(r.value());
+        return pybind11::cast(device_map);
+    });
 #ifdef VERSION_INFO
     m.attr("__version__") = MACRO_STRINGIFY(VERSION_INFO);
 #else

@@ -6,3 +6,6 @@ clang-tidy
 packaging
 requests
 numpy
+ml_dtypes
+opt_einsum
+typing_extensions

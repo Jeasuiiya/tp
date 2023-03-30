@@ -19,5 +19,6 @@ def framework_workspace1():
         patches = ["//:bazel/tf.patch"],
         patch_cmds = [
             "echo \"exports_files(['tools/tf_env_collect.sh', '.bazelrc'])\" >> BUILD",
+            "echo \"exports_files(['find_cuda_config.py', 'find_rocm_config.py'])\" >> third_party/gpus/BUILD",
         ]
     )

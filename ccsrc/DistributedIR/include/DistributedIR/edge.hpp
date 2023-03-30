@@ -1,8 +1,10 @@
 #pragma once
 
+#include <algorithm>
 #ifndef FRAMEWORK_IR_EDGE_H
 #define FRAMEWORK_IR_EDGE_H
 #include <functional>
+#include <iostream>
 #include <string>
 
 #include "fmt/format.h"
@@ -11,42 +13,45 @@ template <typename T>
 struct Edge;
 template <typename T>
 struct EdgePort {
+    static_assert(!std::is_reference_v<T> && !std::is_pointer_v<T>, "T must not be a reference or pointer type.");
     friend struct fmt::formatter<EdgePort<T>>;
-    using TT = std::remove_reference_t<T>;
-    TT* entity;
+    T entity;
+    // port index
     int index;
-    Edge<TT>* edge = nullptr;
-    EdgePort(TT* entity, int index) : entity(entity), index(index) {}
+    Edge<T>* edge = nullptr;
+    EdgePort(const T& entity, int index) : entity(entity), index(index) {}
+
+    EdgePort(T&& entity, int index) : entity(std::move(entity)), index(index) {}
     bool operator==(const EdgePort<T> port) const {
-        return *entity == *port.entity && this->index == port.index;
+        return entity == port.entity && this->index == port.index;
     }
 
-    EdgePort<TT> operator|(const Edge<TT>& edge) {
+    EdgePort<T> operator|(const Edge<T>& edge) {
         this->edge = &edge;
         return *this;
     }
 
-    EdgePort<TT> operator|(Edge<TT>* edge) {
+    EdgePort<T> operator|(Edge<T>* edge) {
         this->edge = edge;
         return *this;
     }
 
-    EdgePort<TT> operator>>(Edge<TT>& edge) {
+    EdgePort<T> operator>>(Edge<T>& edge) {
         edge.start = *this;
         return *this;
     }
 
-    EdgePort<TT> operator<<(Edge<TT>& edge) {
+    EdgePort<T> operator<<(Edge<T>& edge) {
         edge.end = *this;
         return *this;
     }
 
-    EdgePort<TT> operator>>(Edge<TT>* edge) {
+    EdgePort<T> operator>>(Edge<T>* edge) {
         edge->start = *this;
         return *this;
     }
 
-    EdgePort<TT> operator<<(Edge<TT>* edge) {
+    EdgePort<T> operator<<(Edge<T>* edge) {
         edge->end = *this;
         return *this;
     }
@@ -65,18 +70,19 @@ struct EdgePort<std::string> {
 template <typename T>
 struct Edge {
     friend struct fmt::formatter<Edge<T>>;
-    using TT = typename std::remove_reference<T>::type;
-    Edge(TT* start, int start_index, TT* end, int end_index)
-        : start(EdgePort<TT>(start, start_index)), end(EdgePort<TT>(end, end_index)) {
+    static_assert(!std::is_reference_v<T> && !std::is_pointer_v<T>, "T must not be a reference or pointer type.");
+
+    Edge(T start, int start_index, T end, int end_index)
+        : start(EdgePort<T>(start, start_index)), end(EdgePort<T>(end, end_index)) {
         this->start | this;
         this->end | this;
     }
-    Edge(EdgePort<TT> start, EdgePort<TT> end) : start(start), end(end) {
+    Edge(EdgePort<T> start, EdgePort<T> end) : start(start), end(end) {
         this->start | this;
         this->end | this;
     }
-    EdgePort<TT> start;
-    EdgePort<TT> end;
+    EdgePort<T> start;
+    EdgePort<T> end;
 };
 
 struct HasInternalEdge {
@@ -93,16 +99,9 @@ struct HasEdgePort {
         std::vector<EdgePort<T>> result;
         for (auto& ele : internelEles) {
             for (size_t i = 0; i < searchPortSize(ele); i++) {
-                EdgePort<T> ep(&ele, i);
-                bool internal_connected = false;
-                for (auto& e : edges) {
-                    // output edge port must be a edge start
-                    if (getEdgePort(e) == ep) {
-                        internal_connected = true;
-                        break;
-                    }
-                }
-                if (!internal_connected) {
+                EdgePort<T> ep(ele, i);
+                auto find = std::find_if(edges.begin(), edges.end(), [&](auto& e) { return getEdgePort(e) == ep; });
+                if (find == edges.end()) {
                     result.push_back(ep);
                 }
             }
@@ -125,10 +124,7 @@ struct fmt::formatter<framework::EdgePort<T>> {
 
     template <typename FormatContext>
     auto format(const framework::EdgePort<T>& ep, FormatContext& ctx) const -> decltype(ctx.out()) {
-        if (ep.entity == nullptr) {
-            return fmt::format_to(ctx.out(), "EdgePort(entity=null, index={})", ep.index);
-        }
-        return fmt::format_to(ctx.out(), "EdgePort(entity={:s}, index={})", *ep.entity, ep.index);
+        return fmt::format_to(ctx.out(), "<{:s}, {}>", ep.entity, ep.index);
     }
 };
 
@@ -140,7 +136,7 @@ struct fmt::formatter<framework::EdgePort<std::string>> {
 
     template <typename FormatContext>
     auto format(const framework::EdgePort<std::string>& ep, FormatContext& ctx) const -> decltype(ctx.out()) {
-        return fmt::format_to(ctx.out(), "EdgePort(entity={})", ep.entity);
+        return fmt::format_to(ctx.out(), "<{}>", ep.entity);
     }
 };
 

@@ -12,47 +12,95 @@
 
 #include "DistributedIR/graph.hpp"
 #include "common/fmt.hpp"
+#include "common/id.hpp"
 #include "common/util.hpp"
 #include "edge.hpp"
 namespace framework {
 
 class Block {
     friend struct fmt::formatter<Block>;
+    // if source is 0, it represents source is a external input, such user input args
+    using BlockInput = Input<int64_t>;
+    using BlockOutput = AbstractTensor;
+    using BlockInputPort = EdgePort<BlockInput>;
+    using BlockOutputPort = EdgePort<BlockOutput>;
+
+  private:
+    explicit Block() {
+        id = IDGenerator.Gen();
+    }
+    int64_t id;
+    std::string device;
+    SubGraphPtr graph;
+    std::vector<BlockInputPort> inputs;
+    std::vector<BlockOutputPort> outputs;
 
   public:
-    Block(std::string id, std::string device, SubGraph graph)
-        : id(std::move(id)), device(std::move(device)), graph(std::move(graph)) {}
+    explicit Block(const std::string& device) : Block() {
+        this->device = device;
+    }
+    explicit Block(SubGraph& graph) : Block(graph.Device()) {
+        this->graph = std::make_shared<SubGraph>(graph);
+    }
+    explicit Block(SubGraphPtr& graph) : Block(graph->Device()) {
+        this->graph = graph;
+    }
+
     virtual ~Block() = default;
 
-    void AddInputPort(const EdgePort<std::string>& port) {
+    void AddInputPort(const BlockInputPort& port) {
         inputs.push_back(port);
     }
-    void AddOutputPort(const EdgePort<std::string>& port) {
+    void AddInputPort(const BlockInput& input) {
+        // default new input is the latest one
+        AddInputPort(BlockInputPort(input, inputs.size()));
+    }
+    void AddInputPort(int64_t blockId, int index, DataType dtype, const shape_t& shape) {
+        AddInputPort(BlockInput(blockId, index, AbstractTensor(dtype, shape)));
+    }
+    void AddOutputPort(const BlockOutputPort& port) {
         outputs.push_back(port);
     }
-    DECL_ACCESSOR(Inputs, Inputs, ALL(std::vector<EdgePort<std::string>>), inputs, M)
-    DECL_ACCESSOR(Outputs, Outputs, ALL(std::vector<EdgePort<std::string>>), outputs, M)
-
+    void AddOutputPort(const BlockOutput& output) {
+        // default new output is the latest one
+        AddOutputPort(BlockOutputPort(output, outputs.size()));
+    }
+    void AddOutputPort(DataType dtype, const shape_t& shape) {
+        // default new output is the latest one
+        AddOutputPort(AbstractTensor(dtype, shape));
+    }
+    DECL_ACCESSOR(Inputs, Inputs, inputs, M)
+    DECL_ACCESSOR(Outputs, Outputs, outputs, M)
+    DECL_GETTER(Id, id)
+    DECL_GETTER(Device, device)
+    DECL_GETTER(GetSubGraph, graph)
     bool operator==(const Block& block) const {
         return id == block.id;
     }
-
-  private:
-    std::string id;
-    std::string device;
-    SubGraph graph;
-    std::vector<EdgePort<std::string>> inputs;
-    std::vector<EdgePort<std::string>> outputs;
 };
 
 class DeviceGraph : public HasInternalEdge, public HasEdgePort<Block> {
     friend struct fmt::formatter<DeviceGraph>;
 
+  private:
+    std::string id;
+    std::string device;
+    std::vector<Block> blocks;
+    // internal edge
+    std::vector<Edge<Block>> edges;
+
+    // port
+    std::vector<EdgePort<Block>> inputs;
+    std::vector<EdgePort<Block>> outputs;
+
   public:
+    DeviceGraph() = default;
     explicit DeviceGraph(std::string id) : id(std::move(id)){};
     virtual ~DeviceGraph() = default;
-    DECL_ACCESSOR(Inputs, Inputs, std::vector<EdgePort<Block>>, inputs, M)
-    DECL_ACCESSOR(Outputs, Outputs, std::vector<EdgePort<Block>>, outputs, M)
+    DECL_ACCESSOR(Inputs, Inputs, inputs, M)
+    DECL_ACCESSOR(Outputs, Outputs, outputs, M)
+    DECL_GETTER(GetBlocks, blocks)
+    DECL_GETTER(GetEdges, edges)
     void AddBlock(const Block& block) {
         blocks.emplace_back(block);
     }
@@ -61,7 +109,7 @@ class DeviceGraph : public HasInternalEdge, public HasEdgePort<Block> {
     void BuildInputPorts() override {
         BuildSeclectedPorts(
             [](auto b) {
-                // search outputs
+                // search inputs
                 return b.Inputs().size();
             },
             [](auto e) {
@@ -85,28 +133,28 @@ class DeviceGraph : public HasInternalEdge, public HasEdgePort<Block> {
     bool operator==(const DeviceGraph& graph) const {
         return id == graph.id;
     }
-
-  private:
-    std::string id;
-    std::string device;
-    std::vector<Block> blocks;
-    // internal edge
-    std::vector<Edge<Block>> edges;
-
-    // port
-    std::vector<EdgePort<Block>> inputs;
-    std::vector<EdgePort<Block>> outputs;
 };
 
 class ServerGraph : public HasInternalEdge, public HasEdgePort<DeviceGraph> {
     friend struct fmt::formatter<ServerGraph>;
 
+  private:
+    std::string id;
+    std::string server;
+    std::vector<DeviceGraph> device_graphs;
+    std::vector<Edge<DeviceGraph>> edges;
+    // port
+    std::vector<EdgePort<DeviceGraph>> inputs;
+    std::vector<EdgePort<DeviceGraph>> outputs;
+
   public:
+    ServerGraph() = default;
     explicit ServerGraph(std::string id) : id(std::move(id)){};
     virtual ~ServerGraph() = default;
-    DECL_ACCESSOR(Inputs, Inputs, std::vector<EdgePort<DeviceGraph>>, inputs, M)
-    DECL_ACCESSOR(Outputs, Outputs, std::vector<EdgePort<DeviceGraph>>, outputs, M)
-
+    DECL_ACCESSOR(Inputs, Inputs, inputs, M)
+    DECL_ACCESSOR(Outputs, Outputs, outputs, M)
+    DECL_GETTER(GetDeviceGraphs, device_graphs)
+    DECL_GETTER(GetEdges, edges)
     void AddDeviceGraph(const DeviceGraph& graph) {
         device_graphs.emplace_back(graph);
     }
@@ -140,23 +188,30 @@ class ServerGraph : public HasInternalEdge, public HasEdgePort<DeviceGraph> {
     bool operator==(const ServerGraph& graph) const {
         return id == graph.id;
     }
-
-  private:
-    std::string id;
-    std::string server;
-    std::vector<DeviceGraph> device_graphs;
-    std::vector<Edge<DeviceGraph>> edges;
-    // port
-    std::vector<EdgePort<DeviceGraph>> inputs;
-    std::vector<EdgePort<DeviceGraph>> outputs;
+    std::string ToString() {
+        std::stringstream ss;
+        ss << "server_graph_id:" << id << std::endl;
+        return ss.str();
+    }
 };
 
 class ClusterGraph : public HasInternalEdge, public HasEdgePort<ServerGraph> {
     friend struct fmt::formatter<ClusterGraph>;
 
+  private:
+    std::string id;
+    std::vector<ServerGraph> server_graphs;
+    std::vector<Edge<ServerGraph>> edges;
+    // port
+    std::vector<EdgePort<ServerGraph>> inputs;
+    std::vector<EdgePort<ServerGraph>> outputs;
+
   public:
+    ClusterGraph() = default;
     explicit ClusterGraph(std::string id) : id(std::move(id)){};
     virtual ~ClusterGraph() = default;
+    DECL_GETTER(GetServerGraphs, server_graphs)
+    DECL_GETTER(GetEdges, edges)
     void AddServerGraph(const ServerGraph& graph) {
         server_graphs.emplace_back(graph);
     }
@@ -190,14 +245,11 @@ class ClusterGraph : public HasInternalEdge, public HasEdgePort<ServerGraph> {
     bool operator==(const ClusterGraph& graph) const {
         return id == graph.id;
     }
-
-  private:
-    std::string id;
-    std::vector<ServerGraph> server_graphs;
-    std::vector<Edge<ServerGraph>> edges;
-    // port
-    std::vector<EdgePort<ServerGraph>> inputs;
-    std::vector<EdgePort<ServerGraph>> outputs;
+    std::string ToString() {
+        std::stringstream ss;
+        ss << "cluster_graph_id:" << id << std::endl;
+        return ss.str();
+    }
 };
 
 }  // namespace framework
@@ -207,9 +259,9 @@ struct fmt::formatter<framework::Block> : public fmt::formatter<ShortFormat> {
     template <typename FormatContext>
     auto format(const framework::Block& b, FormatContext& ctx) const -> decltype(ctx.out()) {
         if (presentation == 's') {
-            return fmt::format_to(ctx.out(), "Block(id={})", b.id);
+            return fmt::format_to(ctx.out(), "Block(id={}, device={})", b.id, b.device);
         }
-        return fmt::format_to(ctx.out(), "Block(id={}, device={}, graph={}, inputs={}, outputs={})", b.id, b.device,
+        return fmt::format_to(ctx.out(), "Block(id={}, device={}, graph={:s}, inputs={}, outputs={})", b.id, b.device,
                               b.graph, b.inputs, b.outputs);
     }
 };

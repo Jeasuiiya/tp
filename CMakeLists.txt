@@ -7,7 +7,7 @@ cmake_minimum_required(VERSION 3.22)
 # CPM_SOURCE_CACHE
 project(framework CXX)
 
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 17)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -25,6 +25,7 @@ if(MSVC)
   endif()
 elseif(CMAKE_COMPILER_IS_GNUCC OR CMAKE_COMPILER_IS_GNUCXX)
   # Update if necessary
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Werror")
 endif()
 
@@ -64,6 +65,7 @@ set(FRAMEWORK_THIRD_COMMON_LIBS "")
 list(APPEND FRAMEWORK_THIRD_COMMON_LIBS Result::Result)
 list(APPEND FRAMEWORK_THIRD_COMMON_LIBS fmt::fmt)
 list(APPEND FRAMEWORK_THIRD_COMMON_LIBS range-v3)
+list(APPEND FRAMEWORK_THIRD_COMMON_LIBS spdlog::spdlog_header_only)
 
 add_library(ThirdCommon INTERFACE)
 target_link_libraries(ThirdCommon INTERFACE ${FRAMEWORK_THIRD_COMMON_LIBS})
@@ -71,6 +73,16 @@ target_link_libraries(ThirdCommon INTERFACE ${FRAMEWORK_THIRD_COMMON_LIBS})
 if(FRAMEWORK_ENABLE_BINDINGS_PYTHON)
   include(FetchPybind11)
   fetch_pybind11()
+  file(GLOB_RECURSE FRAMEWORK_PYTHON_SRCS ${CMAKE_CURRENT_SOURCE_DIR}/python/*.py)
+  add_custom_target(
+    python
+    COMMENT "copy python sources"
+    VERBATIM COMMAND_EXPAND_LISTS
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_BINARY_DIR}/python"
+    COMMAND ${CMAKE_COMMAND} -E copy_directory_if_different ${CMAKE_CURRENT_SOURCE_DIR}/python
+            "${CMAKE_BINARY_DIR}/python"
+    DEPENDS ${FRAMEWORK_PYTHON_SRCS}
+    SOURCES ${FRAMEWORK_PYTHON_SRCS})
 endif()
 
 add_subdirectory(ccsrc)

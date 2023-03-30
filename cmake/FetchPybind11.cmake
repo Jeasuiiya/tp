@@ -1,5 +1,6 @@
 # require CPM
 include(CPM)
+include(CMakeParseArguments)
 # cmake-lint: disable=C0103
 # fetch_pybind11
 function(fetch_pybind11)
@@ -13,17 +14,16 @@ function(fetch_pybind11)
   endif()
 endfunction(fetch_pybind11)
 
-# cmake-lint: disable=W0106
-# add_python_subdirectory subdirectory [BINARY_DIR]
-function(add_python_subdirectory subdirectory)
-  message(STATUS "${ARGV0} in ${CMAKE_CURRENT_SOURCE_DIR} -> $\{CMAKE_BINARY_DIR\}/python/${ARGV1}")
-  add_subdirectory(${subdirectory} ${CMAKE_BINARY_DIR}/python/${ARGV1})
-endfunction(add_python_subdirectory)
-# add_pybind11_module target [SOURCE ...]
-function(add_pybind11_module)
-  pybind11_add_module(${ARGN})
-  target_compile_definitions(${ARGV0} PRIVATE VERSION_INFO=${PROJECT_VERSION} PYBIND11_CURRENT_MODULE_NAME=${ARGV0})
-  add_dependencies(pymodule ${ARGV0})
+# add_pybind11_module <target> <output_path> [SRCS srcs...] [DEPENDS targets...]
+function(add_pybind11_module target_name output_path)
+  cmake_parse_arguments(_ARG "" "" "SRCS;DEPENDS" ${ARGN})
+
+  pybind11_add_module(${target_name} ${_ARG_SRCS})
+  target_compile_definitions(${target_name} PRIVATE VERSION_INFO=${PROJECT_VERSION}
+                                                    PYBIND11_CURRENT_MODULE_NAME=${target_name})
+  target_link_libraries(${target_name} PRIVATE ${_ARG_DEPENDS})
+  add_dependencies(pymodule ${target_name})
+  set_target_properties(${target_name} PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/python/${output_path}")
 endfunction(add_pybind11_module)
 
 add_custom_target(pymodule COMMENT "pymodule")

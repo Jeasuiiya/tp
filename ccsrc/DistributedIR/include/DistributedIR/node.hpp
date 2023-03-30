@@ -1,6 +1,7 @@
 #ifndef FRAMEWORK_GRAPH_NODE_H
 #define FRAMEWORK_GRAPH_NODE_H
 
+#include <algorithm>
 #include <map>
 #include <numeric>
 #include <sstream>
@@ -8,23 +9,37 @@
 #include <utility>
 #include <vector>
 
+#include "DistributedIR/edge.hpp"
+#include "DistributedIR/input.hpp"
+#include "DistributedIR/tensor.hpp"
+#include "common/error.hpp"
+#include "common/result_macro.hpp"
+#include "common/types.hpp"
 #include "common/util.hpp"
 #include "fmt/core.h"
 #include "fmt/format.h"
 #include "fmt/ranges.h"
+#include "range/v3/algorithm/find_if.hpp"
+#include "range/v3/all.hpp"
+#include "result.hpp"
+
 namespace framework {
+
+class NodeBase;
+using NodePtr = std::shared_ptr<NodeBase>;
 
 class NodeBase {
     friend struct fmt::formatter<NodeBase>;
-    friend struct fmt::formatter<std::shared_ptr<NodeBase>>;
+    friend struct fmt::formatter<NodePtr>;
 
   private:
-    std::string name;                 // 节点名
-    std::string op;                   // 算子名
-    std::vector<std::string> inputs;  // 节点输入
+    std::string name;  // node name
+    std::string op;    // op name
+    // intpus and outputs just record node name which this node is connected with.
+    std::vector<std::string> inputs;
     std::vector<std::string> outputs;
-    std::vector<std::string> inputs_data;      // 输入节点名:输出index
-    std::vector<std::string> outputs_data;     // 当前节点的输出   当前节点名:输出index
+    std::vector<EdgePort<InputStr>> input_ports;
+    std::vector<EdgePort<AbstractTensor>> output_ports;
     std::string device;                        // 该节点的计算设备
     std::map<std::string, std::string> attrs;  // 节点属性
     int64_t outputs_num{0};                    // 输出个数
@@ -39,53 +54,122 @@ class NodeBase {
     // T data;
   public:
     NodeBase() = default;
-    NodeBase(const NodeBase& n) = default;
-    explicit NodeBase(NodeBase* node)
-        : name(node->name),
-          op(node->op),
-          inputs(node->inputs),
-          outputs(node->outputs),
-          inputs_data(node->inputs_data),
-          outputs_data(node->outputs_data),
-          device(node->device),
-          attrs(node->attrs),
-          outputs_num(node->outputs_num),
-          start_time(node->start_time),
-          end_time(node->end_time),
-          compute_cost(node->compute_cost),
-          temporary_memory(node->temporary_memory),
-          persistent_memory(node->persistent_memory),
-          input_memory(node->input_memory),
-          output_memory(node->output_memory) {}
-    virtual ~NodeBase() = default;
-    DECL_ACCESSOR(Name, Name, std::string, name, M)
-    DECL_ACCESSOR(Op, Op, std::string, op, M)
-    DECL_ACCESSOR(Device, Device, std::string, device, M)
-    DECL_ACCESSOR(Inputs, Inputs, std::vector<std::string>, inputs, M)
-    DECL_ACCESSOR(Outputs, Outputs, std::vector<std::string>, outputs, M)
-    DECL_ACCESSOR(InputsData, InputsData, std::vector<std::string>, inputs_data, M)
-    DECL_ACCESSOR(OutputsData, OutputsData, std::vector<std::string>, outputs_data, M)
-    DECL_ACCESSOR(OutputsNum, OutputsNum, int64_t, outputs_num, M)
-    DECL_ACCESSOR(Attrs, Attrs, ALL(std::map<std::string, std::string>), attrs, M)
-    DECL_ACCESSOR(StartTime, StartTime, int64_t, start_time, M)
-    DECL_ACCESSOR(EndTime, EndTime, int64_t, end_time, M)
-    DECL_ACCESSOR(ComputeCost, ComputeCost, int64_t, compute_cost, M)
-    DECL_ACCESSOR(TemporaryMemory, TemporaryMemory, int64_t, temporary_memory, M)
-    DECL_ACCESSOR(PersistentMemory, PersistentMemory, int64_t, persistent_memory, M)
-    DECL_ACCESSOR(InputMemory, InputMemory, int64_t, input_memory, M)
-    DECL_ACCESSOR(OutputMemory, OutputMemory, int64_t, output_memory, M)
-    // // DECL_ACCESSOR(T, data)
+
+    DECL_ACCESSOR(Name, Name, name, M)
+    DECL_ACCESSOR(Op, Op, op, M)
+    DECL_ACCESSOR(Device, Device, device, M)
+    DECL_ACCESSOR(Inputs, Inputs, inputs, M)
+    DECL_ACCESSOR(Outputs, Outputs, outputs, M)
+    DECL_ACCESSOR(OutputsNum, OutputsNum, outputs_num, M)
+    DECL_ACCESSOR(Attrs, Attrs, attrs, M)
+    DECL_ACCESSOR(StartTime, StartTime, start_time, M)
+    DECL_ACCESSOR(EndTime, EndTime, end_time, M)
+    DECL_ACCESSOR(ComputeCost, ComputeCost, compute_cost, M)
+    DECL_ACCESSOR(TemporaryMemory, TemporaryMemory, temporary_memory, M)
+    DECL_ACCESSOR(PersistentMemory, PersistentMemory, persistent_memory, M)
+    DECL_ACCESSOR(InputMemory, InputMemory, input_memory, M)
+    DECL_ACCESSOR(OutputMemory, OutputMemory, output_memory, M)
+    DECL_GETTER(InputPorts, input_ports)
+    DECL_GETTER(OutputPorts, output_ports)
+
     void AddInput(const std::string& input) {
         inputs.push_back(input);
     }
     void AddOutput(const std::string& output) {
         outputs.push_back(output);
     }
-    void AddInputsData(const std::string& input_data) {
-        inputs_data.push_back(input_data);
+
+    cpp::result<EdgePort<InputStr>&, Error> InputPort(int index) {
+        auto r = ranges::find_if(input_ports, [=](EdgePort<InputStr>& i) { return i.index == index; });
+        if (r == input_ports.end()) {
+            return cpp::fail(Error(Kind::Invalid, fmt::format("Input EdgePort for index {} is not exist.", index)));
+        }
+        return *r;
     }
-    void AddOutputsData(const std::string& output_data) {
-        outputs_data.push_back(output_data);
+    cpp::result<StrAndInt, Error> InputRef(int index) {
+        TRY_ASSIGN(auto r, InputPort(index));
+        return r.entity.Ref();
+    }
+
+    cpp::result<void, Error> AddInputPort(const std::string& input_node, int input_index, int index, DataType dtype,
+                                          const shape_t& shape) {
+        EdgePort<InputStr> p(InputStr(input_node, input_index, AbstractTensor(dtype, shape)), index);
+        auto r = InputPort(p.index);
+        if (r.has_value()) {
+            return cpp::fail(Error(Kind::Invalid, fmt::format("Input EdgePort for index {} is exist.", p.index)));
+        }
+        input_ports.emplace_back(p);
+        SortInputPort();
+        return {};
+    }
+    template <class T = EdgePort<InputStr>, class = std::enable_if_t<std::is_same_v<T, EdgePort<InputStr>>>>
+    cpp::result<void, Error> AddInputPort(T&& p) {
+        auto r = InputPort(p.index);
+        if (r.has_value()) {
+            return cpp::fail(Error(Kind::Invalid, fmt::format("Input EdgePort for index {} is exist.", p.index)));
+        }
+        input_ports.emplace_back(std::forward<T>(p));
+        SortInputPort();
+        return {};
+    }
+
+    void DelInputPort(int index) {
+        input_ports = input_ports | ranges::views::remove_if([=](EdgePort<InputStr>& p) { return p.index == index; })
+                      | ranges::to<decltype(input_ports)>();
+    }
+
+    void SortInputPort() {
+        ranges::sort(input_ports, [](auto& a1, auto& a2) { return a1.index < a2.index; });
+    }
+    cpp::result<void, Error> AddOutputPort(DataType dtype, const shape_t& shape, int index) {
+        return AddOutputPort(EdgePort<AbstractTensor>(AbstractTensor(dtype, shape), index));
+    }
+    cpp::result<void, Error> AddOutputPort(DataType dtype, const shape_t& shape, int index, void* ptr, size_t length) {
+        return AddOutputPort(EdgePort<AbstractTensor>(AbstractTensor(dtype, shape, ptr, length), index));
+    }
+    template <class T = EdgePort<AbstractTensor>, class = std::enable_if_t<std::is_same_v<T, EdgePort<AbstractTensor>>>>
+    cpp::result<void, Error> AddOutputPort(T&& p) {
+        auto r = OutputPort(p.index);
+        if (r.has_value()) {
+            return cpp::fail(Error(Kind::Invalid, fmt::format("Output EdgePort for index {} is exist.", p.index)));
+        }
+        output_ports.emplace_back(std::forward<T>(p));
+        SortOutputPort();
+        return {};
+    }
+
+    void DelOutputPort(int index) {
+        output_ports = output_ports
+                       | ranges::views::remove_if([=](EdgePort<AbstractTensor>& p) { return p.index == index; })
+                       | ranges::to<decltype(output_ports)>();
+    }
+
+    void SortOutputPort() {
+        ranges::sort(output_ports, [](auto& a1, auto& a2) { return a1.index < a2.index; });
+    }
+    size_t InputSize() {
+        return input_ports.size();
+    }
+    size_t OutputSize() {
+        return output_ports.size();
+    }
+
+    cpp::result<StrAndInt, Error> InputName(int index) {
+        TRY(InputPort(index));
+        return std::make_pair(name, index);
+    }
+
+    cpp::result<StrAndInt, Error> OutputName(int index) {
+        TRY(OutputPort(index));
+        return std::make_pair(name, index);
+    }
+
+    cpp::result<EdgePort<AbstractTensor>&, Error> OutputPort(int index) {
+        auto r = ranges::find_if(output_ports, [=](EdgePort<AbstractTensor>& i) { return i.index == index; });
+        if (r == output_ports.end()) {
+            return cpp::fail(Error(Kind::Invalid, fmt::format("Output EdgePort for index {} is not exist.", index)));
+        }
+        return *r;
     }
 };
 
@@ -104,9 +188,10 @@ struct fmt::formatter<framework::NodeBase> {
 
     template <typename FormatContext>
     auto format(const framework::NodeBase& n, FormatContext& ctx) const -> decltype(ctx.out()) {
-        return fmt::format_to(ctx.out(),
-                              "NodeBase(name={}, op={}, device={}, inputs={}, attrs={}, persistent_memory={})", n.name,
-                              n.op, n.device, n.inputs, n.attrs, n.persistent_memory);
+        return fmt::format_to(
+            ctx.out(),
+            "NodeBase(name={}, op={}, device={}, inputs={}, outputs={}, input_ports={}, output_ports={}, attrs={})",
+            n.name, n.op, n.device, n.inputs, n.outputs, n.input_ports, n.output_ports, n.attrs);
     }
 };
 // NOLINTEND(readability-identifier-naming)

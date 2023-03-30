@@ -1,16 +1,16 @@
 repos:
 - repo: local
   hooks:
-  - id: "check-clang-format"
+  - id: "check-cc-format"
     name: "[clang-format] Check for C/C++/Protobuf Format"
     entry: "./scripts/batch.py --regex-cc --flags='-n -Werror'"
     language: system
-    files: ^(./)?ccsrc/.*$
-  - id: "check-clang-lint"
+    files: ^(./)?((ccsrc)|(tests))/.*$
+  - id: "check-cc-lint"
     name: "[clang-tidy] Check for CC Lint"
     entry: "./scripts/run-clang-tidy -p build -quiet $1"
     language: system
-    files: ^(./)?ccsrc/.*$
+    files: ^(./)?((ccsrc)|(tests))/.*$
   - id: "check-py-format"
     name: "[black] Check for Python Format"
     entry: black --check
@@ -25,9 +25,9 @@ repos:
     name: "[cmake-format] Check for Cmake Format"
     entry: ./scripts/batch.py --binary cmake-format --regex-cmake --flags='--check'
     language: system
-    files: "(^(./)?CMakeLists.txt$)|(^(./)?ccsrc/.*/CMakeLists.txt$)|(^(./)?cmake/[^(third_party)].*cmake$)"
+    files: "(^(./)?CMakeLists.txt$)|(^(./)?((ccsrc)|(tests))/.*/CMakeLists.txt$)|(^(./)?cmake/[^(third_party)].*cmake$)"
   - id: "check-cmake-lint"
     name: "[cmake-lint] Check for Cmake Lint"
     entry: ./scripts/batch.py --binary cmake-lint --regex-cmake
     language: system
-    files: "(^(./)?CMakeLists.txt$)|(^(./)?ccsrc/.*/CMakeLists.txt$)|(^(./)?cmake/[^(third_party)].*cmake$)"
+    files: "(^(./)?CMakeLists.txt$)|(^(./)?((ccsrc)|(tests))/.*/CMakeLists.txt$)|(^(./)?cmake/[^(third_party)].*cmake$)"

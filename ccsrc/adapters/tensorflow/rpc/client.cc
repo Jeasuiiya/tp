@@ -1,12 +1,11 @@
 #include "adapters/tensorflow/rpc/client.h"
 
-#include <grpcpp/grpcpp.h>
-
 #include <iostream>
 #include <memory>
 #include <string>
 
 #include "fmt/format.h"
+#include "grpcpp/grpcpp.h"
 using framework::rpc::CallRequest;
 using framework::rpc::CallResponse;
 using framework::rpc::RpcService;

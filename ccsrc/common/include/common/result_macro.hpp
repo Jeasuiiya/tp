@@ -6,11 +6,13 @@
 #define RESULT_MACROS_CONCAT_IMPL(x, y) x##y
 
 #define TRY_ASSIGN_IMPL(result, lhs, rexpr)            \
-    auto(result) = (rexpr);                            \
+    /*NOLINTNEXTLINE*/                                 \
+    auto result = (rexpr);                             \
     if ((result).has_error()) {                        \
-        return cpp::fail(std::move((result).error())); \
+        return cpp::fail(std::move((result)).error()); \
     }                                                  \
-    (lhs) = std::move((result)).value()
+    /*NOLINTNEXTLINE*/                                 \
+    lhs = std::move((result)).value()
 
 #define TRY_ASSIGN(lhs, rexpr) TRY_ASSIGN_IMPL(RESULT_MACROS_CONCAT_NAME(_result_or_value, __COUNTER__), lhs, rexpr)
 

@@ -34,7 +34,7 @@ inline std::ostream& operator<<(std::ostream& os, const T& t) {
     return os;
 }
 
-// NOLINTBEGIN(readability-identifier-naming)
+// NOLINTBEGIN
 template <typename T>
 class fmt_unique {
     friend struct fmt::formatter<fmt_unique<T>>;
@@ -42,6 +42,22 @@ class fmt_unique {
 
   public:
     explicit fmt_unique(const std::unique_ptr<T>& ptr) : ptr(ptr) {}
+};
+template <typename T>
+class fmt_shared {
+    friend struct fmt::formatter<fmt_shared<T>>;
+    const std::shared_ptr<T>& ptr;
+
+  public:
+    explicit fmt_shared(const std::shared_ptr<T>& ptr) : ptr(ptr) {}
+};
+template <typename T>
+class fmt_weak {
+    friend struct fmt::formatter<fmt_weak<T>>;
+    const std::weak_ptr<T> ptr;
+
+  public:
+    fmt_weak(const std::weak_ptr<T>& ptr) : ptr(ptr) {}
 };
 struct ShortFormat;
 template <>
@@ -52,10 +68,14 @@ struct fmt::formatter<ShortFormat> {
     constexpr auto parse(format_parse_context& ctx) -> decltype(ctx.begin()) {
         const auto* it = ctx.begin();
         const auto* end = ctx.end();
-        if (it != end && (*it == 's' || *it == 'f')) presentation = *it++;
+        if (it != end && (*it == 's' || *it == 'f')) {
+            presentation = *it++;
+        }
 
         // Check if reached the end of the range:
-        if (it != end && *it != '}') throw format_error("invalid format");
+        if (it != end && *it != '}') {
+            throw format_error("invalid format");
+        }
 
         // Return an iterator past the end of the parsed range:
         return it;
@@ -63,18 +83,32 @@ struct fmt::formatter<ShortFormat> {
 };
 template <typename T>
 struct fmt::formatter<std::shared_ptr<T>> : public fmt::formatter<T> {
-    template <typename FormatContext, formatable_t<T> = 0>
+    template <typename FormatContext, class = formatable_t<T>>
     auto format(const std::shared_ptr<T>& ptr, FormatContext& ctx) const -> decltype(ctx.out()) {
         return fmt::formatter<T>::format(*ptr.get(), ctx);
     }
 };
 template <typename T>
-struct fmt::formatter<fmt_unique<T>> : public fmt::formatter<T> {
-    template <typename FormatContext, formatable_t<T> = 0>
-    auto format(const fmt_unique<T>& proxy, FormatContext& ctx) const -> decltype(ctx.out()) {
-        return fmt::formatter<T>::format(*proxy.ptr.get(), ctx);
+struct fmt::formatter<fmt_shared<T>> : public fmt::formatter<T> {
+    template <typename FormatContext, class = formatable_t<T>>
+    auto format(const fmt_shared<T>& proxy, FormatContext& ctx) const -> decltype(ctx.out()) {
+        return fmt::formatter<T>::format(*proxy.ptr, ctx);
     }
 };
-// NOLINTEND(readability-identifier-naming)
+template <typename T>
+struct fmt::formatter<fmt_weak<T>> : public fmt::formatter<fmt_shared<T>> {
+    template <typename FormatContext, class = formatable_t<T>>
+    auto format(const fmt_weak<T>& proxy, FormatContext& ctx) const -> decltype(ctx.out()) {
+        return fmt::formatter<fmt_shared<T>>::format(fmt_shared(proxy.ptr.lock()), ctx);
+    }
+};
+template <typename T>
+struct fmt::formatter<fmt_unique<T>> : public fmt::formatter<T> {
+    template <typename FormatContext, class = formatable_t<T>>
+    auto format(const fmt_unique<T>& proxy, FormatContext& ctx) const -> decltype(ctx.out()) {
+        return fmt::formatter<T>::format(*proxy.ptr, ctx);
+    }
+};
+// NOLINTEND
 
 #endif

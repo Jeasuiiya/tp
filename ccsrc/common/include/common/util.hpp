@@ -1,33 +1,40 @@
 #ifndef FRAMEWORK_UTIL_H
 #define FRAMEWORK_UTIL_H
+#include <type_traits>
 
+#include "traits.hpp"
 #define ALL(...) __VA_ARGS__
 
 #ifndef DECL_SETTER
-#define DECL_SETTER(SetterName, Type, fieldName, MOVE_OR_COPY) \
-    DECL_SETTER_##MOVE_OR_COPY(SetterName, ALL(Type), fieldName)
+#define DECL_SETTER(SetterName, fieldName, MOVE_OR_COPY) DECL_SETTER_##MOVE_OR_COPY(SetterName, fieldName)
 #endif
 
 #ifndef DECL_SETTER_M
-#define DECL_SETTER_M(SetterName, Type, fieldName) \
-    /* NOLINTNEXTLINE */                           \
-    inline void SetterName(const Type&(fieldName)) { this->fieldName = std::move(fieldName); }
+#define DECL_SETTER_M(SetterName, fieldName)                                                                \
+    /* NOLINTNEXTLINE */                                                                                    \
+    inline void SetterName(std::add_lvalue_reference_t<std::add_const_t<decltype(fieldName)>>(fieldName)) { \
+        this->fieldName = std::move(fieldName);                                                             \
+    }
 #endif
 #ifndef DECL_SETTER_C
-#define DECL_SETTER_C(SetterName, Type, fieldName) \
-    /* NOLINTNEXTLINE */                           \
-    inline void SetterName(const Type&(fieldName)) { this->fieldName = fieldName; }
+#define DECL_SETTER_C(SetterName, fieldName)                                                                \
+    /* NOLINTNEXTLINE */                                                                                    \
+    inline void SetterName(std::add_lvalue_reference_t<std::add_const_t<decltype(fieldName)>>(fieldName)) { \
+        this->fieldName = fieldName;                                                                        \
+    }
 #endif
 
 #ifndef DECL_GETTER
-#define DECL_GETTER(GetterName, Type, fieldName) \
-    inline Type& GetterName() { return fieldName; }
+#define DECL_GETTER(GetterName, fieldName)                                       \
+    inline auto GetterName()->std::add_lvalue_reference_t<decltype(fieldName)> { \
+        return fieldName;                                                        \
+    }
 #endif
 
 #ifndef DECL_ACCESSOR
-#define DECL_ACCESSOR(GetterName, SetterName, Type, fName, MOVE) \
-    DECL_SETTER(SetterName, ALL(Type), fName, MOVE)              \
-    DECL_GETTER(GetterName, ALL(Type), fName)
+#define DECL_ACCESSOR(GetterName, SetterName, fName, MOVE) \
+    DECL_SETTER(SetterName, fName, MOVE)                   \
+    DECL_GETTER(GetterName, fName)
 #endif
 
 #ifndef DECL_SETTER_PROXY
@@ -54,32 +61,38 @@
 #endif
 
 #ifndef DECL_GETTER_PROXY
-#define DECL_GETTER_PROXY(GetterName, Type, Proxy, ProxyGetterName) \
-    inline Type& GetterName() { return this->Proxy->ProxyGetterName(); }
+#define DECL_GETTER_PROXY(GetterName, Proxy, ProxyGetterName)                                         \
+    inline auto GetterName()->std::add_lvalue_reference_t<decltype(this->Proxy->ProxyGetterName())> { \
+        return this->Proxy->ProxyGetterName();                                                        \
+    }
 #endif
 
 #ifndef DECL_ACCESSOR_PROXY
 #define DECL_ACCESSOR_PROXY(SetterName, GetterName, Type, Proxy, ProxySetterName, ProxyGetterName, MOVE_OR_COPY) \
     DECL_SETTER_PROXY(SetterName, ALL(Type), Proxy, ProxySetterName, MOVE_OR_COPY)                               \
-    DECL_GETTER_PROXY(GetterName, ALL(Type), Proxy, ProxyGetterName)
+    DECL_GETTER_PROXY(GetterName, Proxy, ProxyGetterName)
 #endif
 
+// proxy setter is same to getter
 #ifndef DECL_ACCESSOR_PROXY_S
 #define DECL_ACCESSOR_PROXY_S(SetterName, GetterName, Type, Proxy, ProxySetterGetterName, MOVE_OR_COPY) \
     DECL_SETTER_PROXY(SetterName, ALL(Type), Proxy, ProxySetterGetterName, MOVE_OR_COPY)                \
-    DECL_GETTER_PROXY(GetterName, ALL(Type), Proxy, ProxySetterGetterName)
+    DECL_GETTER_PROXY(GetterName, Proxy, ProxySetterGetterName)
 #endif
 
+// proxy setter is same to getter
+// setter is same to getter
 #ifndef DECL_ACCESSOR_PROXY_SS
 #define DECL_ACCESSOR_PROXY_SS(SetterGetterName, Type, Proxy, ProxySetterGetterName, MOVE_OR_COPY) \
     DECL_SETTER_PROXY(SetterGetterName, ALL(Type), Proxy, ProxySetterGetterName, MOVE_OR_COPY)     \
-    DECL_GETTER_PROXY(SetterGetterName, ALL(Type), Proxy, ProxySetterGetterName)
+    DECL_GETTER_PROXY(SetterGetterName, Proxy, ProxySetterGetterName)
 #endif
 
+// all name is same
 #ifndef DECL_ACCESSOR_PROXY_SSS
 #define DECL_ACCESSOR_PROXY_SSS(SetterGetterName, Type, Proxy, MOVE_OR_COPY)              \
     DECL_SETTER_PROXY(SetterGetterName, ALL(Type), Proxy, SetterGetterName, MOVE_OR_COPY) \
-    DECL_GETTER_PROXY(SetterGetterName, ALL(Type), Proxy, SetterGetterName)
+    DECL_GETTER_PROXY(SetterGetterName, Proxy, SetterGetterName)
 #endif
 
 #endif /* ifndef FRAMEWORK_UTIL_H */

@@ -8,27 +8,24 @@ jobs:
   check-format-and-lint:
     name: Format and Lint Check
     runs-on: self-hosted
-    needs: checkout
     steps:
     - uses: actions/checkout@v3
-    - name: "[clang-format] Check for C/C++/Protobuf Format."
-      id: check-cc-format
-      continue-on-error: true
-      uses: http://github.com/jidicula/clang-format-action@v4.10.2
-      with:
-        clang-format-version: '15'
-        check-path: 'ccsrc'
-    - name: "[clang-tidy] Check for CC Lint"
-      id: check-cc-lint
-      continue-on-error: true
-      run: |
-        TIDY_FLAGS="-quiet -warnings-as-errors=*" ./scripts/lint-cc ccsrc/
     - uses: https://github.com/actions/setup-python@v4
       id: setup-python
       continue-on-error: true
       with:
-        python-version: "3.9"
+        python-version: "3.10"
     - run: pip install -r dev-requirements.txt
+    - name: "[clang-format] Check for C/C++/Protobuf Format."
+      id: check-cc-format
+      continue-on-error: true
+      run: |
+        bash ./scripts/format-cc "ccsrc tests" "-n -Werror"
+    - name: "[clang-tidy] Check for CC Lint"
+      id: check-cc-lint
+      continue-on-error: true
+      run: |
+        TIDY_FLAGS="-quiet -warnings-as-errors=*" ./scripts/lint-cc "ccsrc tests"
     - name: "[black] Check for Python Format"
       id: check-py-format
       continue-on-error: true

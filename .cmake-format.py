@@ -26,7 +26,21 @@ with section("parse"):
             }
         },
         "add_header_only_library": {"pargs": 3},
-        "add_python_subdirectory": {"pargs": 1},
+        "add_cc_gtest": {
+            "pargs":1,
+            "kwargs": {
+                "SRCS" : "+",
+                "DEPENDS" : "+",
+                "DEFINITIONS": "+"
+            }
+        },
+        "add_pybind11_module": {
+            "pargs": 2,
+            "kwargs": {
+                "SRCS" : "+",
+                "DEPENDS" : "+",
+            }
+        }
     }
 
     # Override configurations per-command where available

@@ -2,9 +2,11 @@
 #ifndef FRAMEWORK_CLUSTER_SERVER_H
 #define FRAMEWORK_CLUSTER_SERVER_H
 
-#include <common/util.hpp>
 #include <string>
 #include <vector>
+
+#include "common/fmt.hpp"
+#include "common/util.hpp"
 
 namespace framework {
 enum class DeviceStatus {
@@ -28,8 +30,10 @@ static inline DeviceType DeviceTypeFrom(const std::string& s) {
     return DeviceType::Cpu;
 }
 class Device {
+    friend struct fmt::formatter<framework::Device>;
+
   private:
-    DeviceStatus status;   // 设备使用状态
+    // DeviceStatus status;   // 设备使用状态
     DeviceType type;       // 设备类型
     std::string name;      // 设备逻辑名称
     int64_t memory;        // 设备总内存
@@ -38,9 +42,8 @@ class Device {
 
   public:
     Device() = default;
-    Device(DeviceStatus _status, DeviceType _type, std::string _name, int64_t _memory, int64_t _free_memory,
-           int64_t _execute_time)
-        : status(std::move(_status)),
+    Device(DeviceType _type, std::string _name, int64_t _memory, int64_t _free_memory, int64_t _execute_time)
+        :  // : status(std::move(_status)),
           type(std::move(_type)),
           name(std::move(_name)),
           memory(std::move(_memory)),
@@ -48,12 +51,12 @@ class Device {
           execute_time(std::move(_execute_time)){};
     virtual ~Device() = default;
 
-    DECL_ACCESSOR(GetStatus, SetStatus, DeviceStatus, status, M)
-    DECL_ACCESSOR(GetType, SetType, DeviceType, type, M)
-    DECL_ACCESSOR(GetName, SetName, std::string, name, M)
-    DECL_ACCESSOR(GetMemory, SetMemory, int64_t, memory, M)
-    DECL_ACCESSOR(GetFreeMemory, SetFreeMemory, int64_t, free_memory, M)
-    DECL_ACCESSOR(GetExecuteTime, SetExecuteTime, int64_t, execute_time, M)
+    // DECL_ACCESSOR(GetStatus, SetStatus, status, M)
+    DECL_ACCESSOR(GetType, SetType, type, M)
+    DECL_ACCESSOR(GetName, SetName, name, M)
+    DECL_ACCESSOR(GetMemory, SetMemory, memory, M)
+    DECL_ACCESSOR(GetFreeMemory, SetFreeMemory, free_memory, M)
+    DECL_ACCESSOR(GetExecuteTime, SetExecuteTime, execute_time, M)
 };
 
 // enum class LinkType { PCIE, NVLink, Eth };
@@ -74,4 +77,14 @@ class Device {
 
 };  // namespace framework
 
+// NOLINTBEGIN(readability-identifier-naming)
+template <>
+struct fmt::formatter<framework::Device> : public fmt::formatter<ShortFormat> {
+    template <typename FormatContext>
+    auto format(const framework::Device& d, FormatContext& ctx) const -> decltype(ctx.out()) {
+        return fmt::format_to(ctx.out(), "Devide(name={}, memory={}, free_memory={}, execute_time={})", d.name,
+                              d.memory, d.free_memory, d.execute_time);
+    }
+};
+// NOLINTEND(readability-identifier-naming)
 #endif

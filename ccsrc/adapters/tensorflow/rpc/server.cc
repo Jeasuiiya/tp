@@ -1,7 +1,3 @@
-#include <grpcpp/ext/proto_server_reflection_plugin.h>
-#include <grpcpp/grpcpp.h>
-#include <grpcpp/health_check_service_interface.h>
-
 #include <iostream>
 #include <map>
 #include <memory>
@@ -16,6 +12,9 @@
 #include "cost_graph/common.hpp"
 #include "fmt/format.h"
 #include "fusion/aware_fusion.h"
+#include "grpcpp/ext/proto_server_reflection_plugin.h"
+#include "grpcpp/grpcpp.h"
+#include "grpcpp/health_check_service_interface.h"
 #include "policy/aware/aware_interface.h"
 #include "policy/aware/networkx_generator.h"
 

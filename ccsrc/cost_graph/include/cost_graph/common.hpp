@@ -1,13 +1,13 @@
-#include <DistributedIR/graph.hpp>
-#include <DistributedIR/node.hpp>
-#include <cost_graph/cost_graph.hpp>
+#include "DistributedIR/graph.hpp"
+#include "DistributedIR/node.hpp"
+#include "cost_graph/cost_graph.hpp"
 
 #ifndef FRAMEWORK_COST_GRAPH_COMMON_HPP
 #define FRAMEWORK_COST_GRAPH_COMMON_HPP
 
 namespace framework {
 inline CostGraph ConvertGraphToCostGraph(Graph graph) {
-    std::vector<std::shared_ptr<NodeBase>>& graph_nodes = graph.Nodes();
+    std::vector<NodePtr>& graph_nodes = graph.Nodes();
 
     std::vector<CostNode> cost_nodes;
     std::map<std::string, CostNode&> cost_node_map;

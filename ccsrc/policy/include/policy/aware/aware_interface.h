@@ -1,8 +1,7 @@
-#include <pybind11/embed.h>
-#include <pybind11/pybind11.h>
-
-#include <common/util.hpp>
-#include <cost_graph/cost_graph.hpp>
+#include "common/util.hpp"
+#include "cost_graph/cost_graph.hpp"
+#include "pybind11/embed.h"
+#include "pybind11/pybind11.h"
 
 #ifndef FRAMEWORK_AWARE_INTERFACE_H
 #define FRAMEWORK_AWARE_INTERFACE_H
@@ -28,7 +27,7 @@ class [[gnu::visibility("hidden")]] AwareInterface {
     };
 
     bool StartReinLearningModule();
-    void GetReinLearningBestPlacement(std::map<std::string, std::string> * best_placement);
+    void GetReinLearningBestPlacement(std::map<std::string, std::string>* best_placement);
 };
 }  // namespace framework
 

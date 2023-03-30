@@ -1,5 +1,5 @@
-#include <cost_graph/common.hpp>
-#include <cost_graph/cost_graph.hpp>
+#include "cost_graph/common.hpp"
+#include "cost_graph/cost_graph.hpp"
 
 #ifndef FRAMEWORK_FUSION_AWARE_FUSION_H
 #define FRAMEWORK_FUSION_AWARE_FUSION_H
@@ -22,8 +22,8 @@ class AwareFusion {
     }
     virtual ~AwareFusion() = default;
 
-    DECL_ACCESSOR(GetCostGraph, SetCostGraph, CostGraph, cost_graph, M)
-    DECL_ACCESSOR(GetMergedCostGraph, SetMergedCostGraph, MergedCostGraph, merged_cost_graph, M)
+    DECL_ACCESSOR(GetCostGraph, SetCostGraph, cost_graph, M)
+    DECL_ACCESSOR(GetMergedCostGraph, SetMergedCostGraph, merged_cost_graph, M)
 
     MergedCostGraph GenerateFusedGraph();
 };
