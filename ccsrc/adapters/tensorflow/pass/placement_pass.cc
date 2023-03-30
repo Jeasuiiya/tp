@@ -9,10 +9,10 @@
 #include "adapters/tensorflow/rpc/graph.pb.h"
 #include "adapters/tensorflow/rpc/util.h"
 #include "common/fmt.hpp"
+#include "cost_graph/common.hpp"
+#include "policy/fd-dps/fddps_algorithm.h"
 #include "range/v3/all.hpp"
 #include "tensorflow/tsl/platform/status.h"
-
-namespace fw = framework;
 
 namespace tensorflow {
 std::string GetPlacementConfPrefixEnvVar() {
@@ -48,19 +48,25 @@ std::string GetPlacementRpcAddressEnvVar() {
     return std::string{address};
 }
 
-static Status GetPlacementConf(std::string& result) {
-    std::string prefix = GetPlacementConfPrefixEnvVar();
-    std::string path = GetPlacementConfPathEnvVar();
-    if (path.empty()) {
-        return Status(error::Code::UNKNOWN, "config is not set.");
+enum class PolicyType {
+    None,
+    Aware,
+    FdDps,
+};
+
+PolicyType GetPlacementPolicyVar() {
+    const char* policy = getenv("TF_PLACEMENT_POLICY");
+    if (!policy) {
+        return PolicyType::None;
     }
-
-    auto* env = tensorflow::Env::Default();
-
-    prefix += path;
-    TF_RETURN_IF_ERROR(ReadFileToString(env, prefix, &result));
-    VLOG(0) << "read: " << result;
-    return Status::OK();
+    std::string policy_str{policy};
+    if (policy_str == "aware") {
+        return PolicyType::Aware;
+    }
+    if (policy_str == "fddps") {
+        return PolicyType::FdDps;
+    }
+    return PolicyType::None;
 }
 
 struct ConvertContext {
@@ -107,6 +113,11 @@ std::map<std::string, std::string> GetDeviceMapFromGraph(framework::Graph& graph
            | ranges::to<std::map<std::string, std::string>>();
 }
 
+std::map<std::string, std::string> GetDeviceMapFromCostNodes(std::vector<framework::CostNode>& nodes) {
+    return nodes | ranges::views::transform([](auto& a) { return std::make_pair(a.GetName(), a.GetDevice()); })
+           | ranges::to<std::map<std::string, std::string>>();
+}
+
 framework::Graph ConvertGraphDefToGraph(const GraphDef& graph_def) {
     framework::Graph graph;
     auto context = ConvertContext(graph_def);
@@ -148,24 +159,48 @@ framework::Graph ConvertGraphDefToGraph(const GraphDef& graph_def) {
 Status PlacementPass::Run(const GraphOptimizationPassOptions& options) {
     VLOG(INFO) << "PlacementPass";
     VLOG(INFO) << "is_function_graph: " << options.is_function_graph;
-    auto rpc_address = GetPlacementRpcAddressEnvVar();
-    if (rpc_address.empty()) {
-        LOG(WARNING) << "TF_PLACEMENT_RPC_ADDRESS is not set. skip!";
-        return Status::OK();
-    }
+
     GraphDef graph_def;
     (*options.graph)->ToGraphDef(&graph_def);
     auto graph = ConvertGraphDefToGraph(graph_def);
-    auto rpc_graph = framework::ConvertGraphToMessage(graph);
-
-    framework::RpcServiceClient client(grpc::CreateChannel(rpc_address, grpc::InsecureChannelCredentials()));
-    auto reply = client.Call(rpc_graph);
-    if (reply.has_error()) {
-        VLOG(WARNING) << fmt::format("call rpc error. {}", reply.error().text);
+    std::map<std::string, std::string> device_map;
+    auto policy = GetPlacementPolicyVar();
+    if (policy == PolicyType::None) {
+        LOG(WARNING) << "TF_PLACEMENT_POLICY is not set. skip PlacementPass.";
         return Status::OK();
     }
-    auto device_map = reply.value();
-    VLOG(INFO) << fmt::to_string(device_map);
+    if (policy == PolicyType::Aware) {
+        auto rpc_address = GetPlacementRpcAddressEnvVar();
+        if (rpc_address.empty()) {
+            LOG(WARNING) << "TF_PLACEMENT_RPC_ADDRESS is not set. skip!";
+            return Status::OK();
+        }
+        auto rpc_graph = framework::ConvertGraphToMessage(graph);
+
+        framework::RpcServiceClient client(grpc::CreateChannel(rpc_address, grpc::InsecureChannelCredentials()));
+        auto r = client.Call(rpc_graph);
+        if (r.has_error()) {
+            VLOG(WARNING) << fmt::format("call rpc error. {}", r.error().text);
+            return Status::OK();
+        }
+        device_map = std::move(r.value());
+        VLOG(INFO) << fmt::to_string(device_map);
+    } else if (policy == PolicyType::FdDps) {
+        std::vector<framework::Device> devices;
+        for (auto* i : options.device_set->devices()) {
+            auto memory = i->attributes().memory_limit();
+            devices.emplace_back(framework::DeviceStatus::Idle, framework::DeviceTypeFrom(i->device_type()), i->name(),
+                                 memory, memory, 0);
+        }
+        framework::CostGraph cost_graph = ConvertGraphToCostGraph(graph);
+        framework::FDDPSAlgorithm fddps_algorithm(cost_graph, devices);
+        auto r = fddps_algorithm.Placement();
+        if (r.has_error()) {
+            VLOG(INFO) << fmt::format("call fddps error. {}", r.error().text);
+            return Status::OK();
+        }
+        device_map = GetDeviceMapFromCostNodes(r.value());
+    }
 
     SetDevice(**options.graph, device_map);
     return Status::OK();

@@ -75,7 +75,7 @@ void PrepareParams(py::dict& config_params, py::dict& simulator_params) {
  * implement RpcService
  */
 class RpcServiceImpl final : public RpcService::Service {
-    Status Call(ServerContext* context, const CallRequest* request, CallResponse* reply) override {
+    Status Call(ServerContext* /*context*/, const CallRequest* request, CallResponse* reply) override {
         std::cerr << "received request" << std::endl;
         try {
             auto graph = ConvertMessageToGraph(request->graph());

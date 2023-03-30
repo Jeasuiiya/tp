@@ -12,6 +12,21 @@ enum class DeviceStatus {
     Idle    // 闲置
 };
 enum class DeviceType { Cpu, NVGpu, AMDGpu, Ascend };
+static inline DeviceType DeviceTypeFrom(const std::string& s) {
+    if (s == "cpu" || s == "CPU") {
+        return DeviceType::Cpu;
+    }
+    if (s == "gpu" || s == "GPU") {
+        return DeviceType::NVGpu;
+    }
+    if (s == "rocm" || s == "AMDGPU") {
+        return DeviceType::AMDGpu;
+    }
+    if (s == "ascend" || s == "Ascend") {
+        return DeviceType::Ascend;
+    }
+    return DeviceType::Cpu;
+}
 class Device {
   private:
     DeviceStatus status;   // 设备使用状态

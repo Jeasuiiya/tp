@@ -1,2 +1,2 @@
-add_library(Policy networkx_generator.cc aware_interface.cc)
-target_link_libraries(Policy PUBLIC PolicyHeaders)
+add_library(AwarePolicy networkx_generator.cc aware_interface.cc)
+target_link_libraries(AwarePolicy PUBLIC PolicyHeaders)

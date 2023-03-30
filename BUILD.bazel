@@ -9,7 +9,7 @@ load(
 load("@rules_proto//proto:defs.bzl", "proto_library")
 load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_proto_library")
 load("@com_github_grpc_grpc//bazel:cc_grpc_library.bzl", "cc_grpc_library")
-
+CC_OPTS = ["-Wall", "-Werror", "-Wextra"]
 py_binary(
     main = "@org_tensorflow//:configure.py",
     name = "tf_config",
@@ -61,6 +61,7 @@ cc_library(
     srcs = ["ccsrc/adapters/tensorflow/pass/placement_pass.cc"],
     deps = [
         "TFAdapterHeaders",
+        "FDDPSPolicy",
         "rpc_client",
         "@org_tensorflow//tensorflow/core/common_runtime:optimization_registry",
     ],
@@ -72,7 +73,10 @@ cc_library(
 cc_library(
     name = "DistributedIR",
     srcs = glob(["ccsrc/DistributedIR/*.cc"]),
-    deps = ["DistributedIRHeaders"]
+    deps = ["DistributedIRHeaders"],
+    copts = select({
+        "//conditions:default": CC_OPTS,
+    }),
 )
 cc_library(
     name = "CostGraphHeaders",
@@ -85,20 +89,42 @@ cc_library(
     name = "CostGraph",
     srcs = ["ccsrc/cost_graph/fusion/aware_fusion.cc"],
     includes = ["ccsrc/cost_graph/include"],
-    deps = ["CostGraphHeaders"]
+    deps = ["CostGraphHeaders"],
+    copts = select({
+        "//conditions:default": CC_OPTS,
+    }),
 )
 
 cc_library(
     name = "PolicyHeaders",
     hdrs = glob(["ccsrc/policy/include/**/*.hpp"]),
     includes = ["ccsrc/policy/include"],
-    deps = ["CommonHeaders", "CostGraphHeaders", "@global_pybind11//:pybind11_embed"]
+    deps = ["CommonHeaders", "CostGraphHeaders", "@global_pybind11//:pybind11_embed", "ClusterHeaders"]
 )
 
 cc_library(
-    name = "Policy",
+    name = "ClusterHeaders",
+    hdrs = glob(["ccsrc/cluster/include/**/*.hpp"]),
+    includes = ["ccsrc/cluster/include"],
+    deps = ["CommonHeaders"]
+)
+
+cc_library(
+    name = "AwarePolicy",
     srcs = glob(["ccsrc/policy/aware/*.cc"]),
-    deps = ["PolicyHeaders"]
+    deps = ["PolicyHeaders"],
+    copts = select({
+        "//conditions:default": CC_OPTS,
+    }),
+)
+
+cc_library(
+    name = "FDDPSPolicy",
+    srcs = glob(["ccsrc/policy/fd-dps/*.cc"]),
+    deps = ["PolicyHeaders"],
+    copts = select({
+        "//conditions:default": CC_OPTS,
+    }),
 )
 
 py_extension(
@@ -194,21 +220,27 @@ cc_library(
     srcs = ["ccsrc/adapters/tensorflow/rpc/util.cc"],
     hdrs = ["ccsrc/adapters/include/adapters/tensorflow/rpc/util.h"],
     strip_include_prefix = "ccsrc/adapters/include/",
-    deps = ["graph_proto_cc", "DistributedIR"]
+    deps = ["graph_proto_cc", "DistributedIR"],
+    copts = select({
+        "//conditions:default": CC_OPTS,
+    }),
 )
 
 cc_binary(
     name = "rpc_server",
     srcs = ["ccsrc/adapters/tensorflow/rpc/server.cc"],
     deps = [
-        "Policy",
+        "AwarePolicy",
         "CostGraph",
         "rpc_util",
         "rpc_service_cc",
         "@fmt",
         "@com_github_grpc_grpc//:grpc++",
         "@com_google_protobuf//:protobuf",
-    ]
+    ],
+    copts = select({
+        "//conditions:default": CC_OPTS,
+    }),
 )
 
 cc_library(
@@ -222,5 +254,8 @@ cc_library(
         "@fmt",
         "@com_github_grpc_grpc//:grpc++",
         "@com_google_protobuf//:protobuf",
-    ]
+    ],
+    copts = select({
+        "//conditions:default": CC_OPTS,
+    }),
 )

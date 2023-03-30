@@ -20,6 +20,16 @@ pip install tensorflow networkx
 TF_PLACEMENT_RPC_ADDRESS=localhost:9001 ./bazel-bin/tf-run-graph --graph=/path/to/graph --train_op=<trainop>
 ```
 
+**传递给Pass的参数**
+
+环境变量
+
+`TF_PLACEMENT_POLICY`: 可选值：`aware`, `fddps`
+`TF_PLACEMENT_RPC_ADDRESS`: 使用aware方法时连接的RPC地址，需要提前运行`rpc_server`。例：`localhost:9001`, `unix://rpc_server.socket`
+
+
+
+
 **模型文件**
 
 * [resnet50](https://gist.githubusercontent.com/Yiklek/cc66295cef7361c6a701c9408f1e2661/raw/c7e1bc36f178d57480ae701bc4f7a11cc5b1a530/resnet50.pbtxt)

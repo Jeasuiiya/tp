@@ -38,7 +38,7 @@ add_executable(test_networkx_generator test_networkx_generator.cc)
 target_link_libraries(
   test_networkx_generator
   GTest::gtest_main
-  Policy
+  AwarePolicy
   CostGraph
 )
 
@@ -46,22 +46,21 @@ add_executable(test_aware test_aware.cc)
 target_link_libraries(
   test_aware
   GTest::gtest_main
-  Policy
+  AwarePolicy
   CostGraph
 )
 
-add_executable(test_aware_main test_aware_main.cc)
+add_executable(test_fddps test_fddps.cc)
 target_link_libraries(
-  test_aware_main
+  test_fddps
   GTest::gtest_main
-  Policy
+  FDDPSPolicy
   CostGraph
 )
 
 
 target_compile_definitions(test_networkx_generator PRIVATE SOURCE_PYTHONPATH=${CMAKE_SOURCE_DIR}/python)
 target_compile_definitions(test_aware PRIVATE SOURCE_PYTHONPATH=${CMAKE_SOURCE_DIR}/python)
-target_compile_definitions(test_aware_main PRIVATE SOURCE_PYTHONPATH=${CMAKE_SOURCE_DIR}/python)
 
 include(GoogleTest)
 gtest_discover_tests(test_DistributedIR)
@@ -70,3 +69,4 @@ gtest_discover_tests(test_cost_graph)
 gtest_discover_tests(test_aware_fusion)
 gtest_discover_tests(test_networkx_generator)
 gtest_discover_tests(test_aware)
+gtest_discover_tests(test_fddps)

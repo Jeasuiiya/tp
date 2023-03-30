@@ -27,14 +27,14 @@ class NodeBase {
     std::vector<std::string> outputs_data;     // 当前节点的输出   当前节点名:输出index
     std::string device;                        // 该节点的计算设备
     std::map<std::string, std::string> attrs;  // 节点属性
-    int64_t outputs_num;                       // 输出个数
-    int64_t start_time;                        // 开始时间
-    int64_t end_time;                          // 结束时间
-    int64_t compute_cost;                      // 计算代价
-    int64_t temporary_memory;                  // 临时内存
-    int64_t persistent_memory;                 // 持久内存
-    int64_t input_memory;                      // 输入内存
-    int64_t output_memory;                     // 输出内存
+    int64_t outputs_num{0};                    // 输出个数
+    int64_t start_time{0};                     // 开始时间
+    int64_t end_time{0};                       // 结束时间
+    int64_t compute_cost{0};                   // 计算代价
+    int64_t temporary_memory{0};               // 临时内存
+    int64_t persistent_memory{0};              // 持久内存
+    int64_t input_memory{0};                   // 输入内存
+    int64_t output_memory{0};                  // 输出内存
 
     // T data;
   public:
@@ -104,8 +104,9 @@ struct fmt::formatter<framework::NodeBase> {
 
     template <typename FormatContext>
     auto format(const framework::NodeBase& n, FormatContext& ctx) const -> decltype(ctx.out()) {
-        return fmt::format_to(ctx.out(), "NodeBase(name={}, op={}, device={}, inputs={}, attrs={})", n.name, n.op,
-                              n.device, n.inputs, n.attrs);
+        return fmt::format_to(ctx.out(),
+                              "NodeBase(name={}, op={}, device={}, inputs={}, attrs={}, persistent_memory={})", n.name,
+                              n.op, n.device, n.inputs, n.attrs, n.persistent_memory);
     }
 };
 // NOLINTEND(readability-identifier-naming)
