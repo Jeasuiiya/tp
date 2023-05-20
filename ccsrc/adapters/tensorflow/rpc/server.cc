@@ -9,6 +9,7 @@
 #include "adapters/tensorflow/rpc/service.grpc.pb.h"
 #include "adapters/tensorflow/rpc/service.pb.h"
 #include "adapters/tensorflow/rpc/util.h"
+#include "common/log.h"
 #include "cost_graph/common.hpp"
 #include "fmt/format.h"
 #include "fusion/aware_fusion.h"
@@ -17,6 +18,7 @@
 #include "grpcpp/health_check_service_interface.h"
 #include "policy/aware/aware_interface.h"
 #include "policy/aware/networkx_generator.h"
+#include "policy/trinity/trinity_interface.h"
 
 using framework::rpc::CallRequest;
 using framework::rpc::CallResponse;
@@ -78,9 +80,18 @@ class RpcServiceImpl final : public RpcService::Service {
         std::cerr << "received request" << std::endl;
         try {
             auto graph = ConvertMessageToGraph(request->graph());
+            std::string policy = request->policy();
             py::scoped_interpreter python;
             py::dict config_params;
             py::dict simulator_params;
+            py::int_ n_devs = 8;
+            py::int_ num_cpus = 1;
+            py::bool_ verbose = true;
+            py::int_ step = 50;
+            py::object hparams = py::module::import("framework.trinity.trinity_program").attr("trinity_mian_hparams")();
+            py::object gcontroller =
+                py::module::import("framework.trinity.cluster").attr("TrinityControllerTest")(n_devs, num_cpus);
+            py::object gcluster = gcontroller.attr("getCluster")();
             PrepareParams(config_params, simulator_params);
 
             CostGraph cost_graph = ConvertGraphToCostGraph(graph);
@@ -91,26 +102,43 @@ class RpcServiceImpl final : public RpcService::Service {
             NetworkxGenerator networkx_generator(merged_cost_graph);
             networkx_generator.ConvertMergedCostGraph();
             py::object networkx_graph = networkx_generator.GetNetworkxGraph();
-            std::cerr << "start aware" << std::endl;
-            AwareInterface aware_interface(config_params, simulator_params, networkx_graph);
-            std::cerr << "run aware" << std::endl;
-            bool success = aware_interface.StartReinLearningModule();
-            std::cerr << "aware finished" << std::endl;
-            if (!success) {
-                std::cerr << "aware failed" << std::endl;
-                reply->set_success(false);
-                return Status::OK;
-            }
-            auto* result_graph = new RpcGraph(request->graph());
-            std::map<std::string, RpcNode*> name_to_node;
-            for (auto& n : *result_graph->mutable_node()) {
-                name_to_node.insert({n.name(), &n});
-            }
             std::map<std::string, std::string> best_placement;
-            aware_interface.GetReinLearningBestPlacement(&best_placement);
+            std::map<std::string, RpcNode*> name_to_node;
+            auto* result_graph = new RpcGraph(request->graph());
+            if (policy == "aware") {
+                std::cerr << "start aware" << std::endl;
+                AwareInterface aware_interface(config_params, simulator_params, networkx_graph);
+                std::cerr << "run aware" << std::endl;
+                bool success = aware_interface.StartReinLearningModule();
+                std::cerr << "aware finished" << std::endl;
+                if (!success) {
+                    std::cerr << "aware failed" << std::endl;
+                    reply->set_success(false);
+                    return Status::OK;
+                }
+                for (auto& n : *result_graph->mutable_node()) {
+                    name_to_node.insert({n.name(), &n});
+                }
+                aware_interface.GetReinLearningBestPlacement(&best_placement);
+            } else if (policy == "trinity") {
+                std::cerr << "start trinity" << std::endl;
+                TrinityInterface trinity_interface(networkx_graph, gcluster, hparams, verbose, step);
+                std::cerr << "run trinity" << std::endl;
+                bool success = trinity_interface.StartReinLearningModule();
+                std::cerr << "trinity finished" << std::endl;
+                if (!success) {
+                    std::cerr << "trinity failed" << std::endl;
+                    reply->set_success(false);
+                    return Status::OK;
+                }
+                for (auto& n : *result_graph->mutable_node()) {
+                    name_to_node.insert({n.name(), &n});
+                }
+                trinity_interface.GetReinLearningBestPlacement(&best_placement);
+            }
             std::vector<MergedCostNode>& merged_cost_nodes = merged_cost_graph.GetMergedCostNodes();
             for (auto& merged_cost_node : merged_cost_nodes) {
-                std::string& node_name = merged_cost_node.GetName();
+                const std::string& node_name = merged_cost_node.GetName();
                 std::string device = best_placement[node_name];
                 for (auto& cost_name : merged_cost_node.GetCostNodeNames()) {
                     auto it = name_to_node.find(cost_name);
@@ -144,7 +172,7 @@ void RunServer(std::string address) {
     builder.RegisterService(&service);
     // Finally assemble the server.
     std::unique_ptr<Server> server(builder.BuildAndStart());
-    std::cout << "Server listening on " << address << std::endl;
+    SPDLOG_INFO("Server listening on", address);
 
     // Wait for the server to shutdown. Note that some other thread must be
     // responsible for shutting down the server for this call to ever return.

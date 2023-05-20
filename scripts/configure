@@ -23,7 +23,6 @@ _CMAKE_FLAGS="-GNinja"
 while true; do
     if [[ "$1" == "--help" ]]; then
         usage
-        exit 1
     elif [[ "$1" == "--build" ]]; then
         shift
         _BUILD_DIR="$1"
@@ -38,7 +37,7 @@ while true; do
         _CPM_CACHE_PATH="$1"
     elif [[ "$1" == "--" ]]; then
         shift
-        _CMAKE_FLAGS=$@
+        _CMAKE_FLAGS="$*"
         break
     elif [[ -z "$1" ]]; then
         break
@@ -49,6 +48,8 @@ while true; do
     shift
 done
 set -x
+which cmake
+cmake --version
 cmake -S. -B $_BUILD_DIR \
 -DPYTHON_EXECUTABLE=$_PYTHON_EXECUTABLE \
 -DCMAKE_BUILD_TYPE=$_BUILD_TYPE \

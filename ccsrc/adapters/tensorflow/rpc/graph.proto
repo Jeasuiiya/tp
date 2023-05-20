@@ -11,6 +11,9 @@ message Node {
     repeated string inputs_data = 6;
     repeated string outputs_data = 7;
     map<string, string> attr = 8;
+    int64 computecost = 9;
+    int64 persistent_memory = 10;
+    int64 output_memory = 11;
 }
 
 message Graph {

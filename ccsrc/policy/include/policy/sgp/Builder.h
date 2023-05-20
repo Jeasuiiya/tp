@@ -1,12 +1,7 @@
-#include "DistributedIR/graph.hpp"
-#include "DistributedIR/node.hpp"
 #include "cmath"
 #include "cstdio"
 #include "graphGroup.h"
-#include "iostream"
-#include "map"
-#include "string"
-#include "vector"
+#include "topological.h"
 
 #define MATH_DEFINES_DEFINED
 
@@ -23,19 +18,36 @@ class Builder {
 
     Builder() = default;
 
-    void ConstructBuilder(Graph& graph_) {
+    void ConstructBuilder(Graph& graph_, int OOM) {
         this->SetDtypeBytes();
         int64_t i = 0;
-        std::vector<std::shared_ptr<NodeBase>>& graph_nodes = graph_.Nodes();
-        for (auto& node : graph_nodes) {
-            this->op_index.insert(std::pair<std::string, std::int64_t>((*node).Name(), i++));
-            std::map<std::string, std::string> attr = (*node).Attrs();
+        std::vector<std::string> topological_list = TopoLogical(graph_);
+        std::set<std::string> visited;
+        for (const auto& node_name : topological_list) {
+            auto node = graph_.GetNode(node_name).value();
+            this->op_index.insert(std::pair<std::string, std::int64_t>(node->Name(), i++));
+            std::map<std::string, std::string> attr = node->Attrs();
             if (attr.count("colocation_group") == 0) {
-                attr["colocation_group"] = (*node).Name();
+                attr.try_emplace("colocation_group", (*node).Name());
             }
-            this->SetColocationGroup((*node).Name(), attr["colocation_group"]);
-            this->AddEdges(*node);
-            this->graph.AddNode(*node);
+            this->SetColocationGroup(node->Name(), attr["colocation_group"]);
+            this->AddEdges(node);
+            this->graph.AddNode(node);
+            visited.insert(node->Name());
+        }
+        if (OOM == 1) {
+            for (auto& node : graph_.Nodes()) {
+                if (visited.count((*node).Name()) == 0) {
+                    this->op_index.insert(std::pair<std::string, std::int64_t>((*node).Name(), i++));
+                    std::map<std::string, std::string> attr = (*node).Attrs();
+                    if (attr.count("colocation_group") == 0) {
+                        attr.try_emplace("colocation_group", (*node).Name());
+                    }
+                    this->SetColocationGroup((*node).Name(), attr["colocation_group"]);
+                    this->AddEdges(node);
+                    this->graph.AddNode(node);
+                }
+            }
         }
         this->DefineOpCost();
     }
@@ -58,33 +70,28 @@ class Builder {
         return this->colocation_group[op];
     }
 
-    void AddEdges(NodeBase node) {
-        for (auto input : node.Inputs()) {
-            // "input" is input tensor's name
+    void AddEdges(const std::shared_ptr<framework::NodeBase>& node) {
+        for (auto input : node->Inputs()) {
             auto view = input | ranges::views::split(':') | ranges::to<std::vector<std::string>>();
             std::string index = "0";
             if (view.size() == 2) {
                 index = view[1];
             }
-            auto result = node.InputPort(std::stoi(index));
+            auto result = node->InputPort(std::stoi(index));
             if (result.has_value()) {
                 std::int64_t comm_cost = 1;
                 auto inputport = result.value();
-                // framework::DataType dtype = inputport.entity.tensor.dtype;
                 framework::shape_t shape = inputport.entity.tensor.shape;
-                std::string input_node = inputport.entity.source;
-                for (auto dimi : shape) {
-                    comm_cost *= dimi;
-                }
+                comm_cost = std::accumulate(shape.begin(), shape.end(), static_cast<int64_t>(1), std::multiplies<>());
                 comm_cost *= 4;
                 if (shape.empty()) {
                     comm_cost = 0;
                 }
-                this->in_edge[node.Name()][input] = comm_cost;
-                this->out_edge[input][node.Name()] = comm_cost;
+                this->in_edge[node->Name()][input] = comm_cost;
+                this->out_edge[input][node->Name()] = comm_cost;
             } else {
-                this->in_edge[node.Name()][input] = 0;
-                this->out_edge[input][node.Name()] = 0;
+                this->in_edge[node->Name()][input] = 0;
+                this->out_edge[input][node->Name()] = 0;
             }
         }
     }
@@ -96,16 +103,12 @@ class Builder {
 
             std::int64_t input_tensor = 0;
             std::map<std::string, std::int64_t> in_edges = this->in_edge[op];
-            for (auto& in_edge : in_edges) {
-                input_tensor += in_edge.second;
-            }
-
+            input_tensor = std::accumulate(in_edges.begin(), in_edges.end(), static_cast<int64_t>(0),
+                                           [](int64_t sum, const auto& edge) { return sum + edge.second; });
             std::int64_t output_tensor = 0;
             std::map<std::string, std::int64_t> out_edges = this->out_edge[op];
-            for (auto& out_edge : out_edges) {
-                output_tensor += out_edge.second;
-            }
-
+            output_tensor = std::accumulate(out_edges.begin(), out_edges.end(), static_cast<int64_t>(0),
+                                            [](int64_t sum, const auto& edge) { return sum + edge.second; });
             (*node).InputMemory(input_tensor);
             (*node).OutputMemory(output_tensor);
 
@@ -124,13 +127,13 @@ class Builder {
                 std::int64_t related_op_num = 0;
 
                 std::map<std::string, std::int64_t> in_edges = this->in_edge[op];
-                for (auto& in_edge : in_edges) {
-                    compute_cost += in_edge.second;
+                for (const auto& edge : in_edges) {
+                    compute_cost += edge.second;
                     related_op_num += 1;
                 }
                 std::map<std::string, std::int64_t> out_edges = this->out_edge[op];
-                for (auto& out_edge : out_edges) {
-                    compute_cost += out_edge.second;
+                for (const auto& edge : out_edges) {
+                    compute_cost += edge.second;
                     related_op_num += 1;
                 }
 

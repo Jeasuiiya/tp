@@ -20,12 +20,13 @@ class Partition {
     std::map<std::string, std::string> op_group;
 
     static std::int64_t GetOpMemory(Graph& graph, const std::string& op);
-    Partition(Graph& graph, std::int64_t group_num, std::vector<Device> devices);
-    void GraphPlacement(Graph& graph, std::vector<Device> devices, std::int64_t max_iterations = 50,
-                        float target_factor = 1.2);
+    Partition(Graph& graph, std::int64_t group_num, std::vector<Device> devices, float target_factor, int OOM);
+    void GraphPlacement(Graph& graph, std::vector<Device> devices, std::int64_t max_iterations = 500,
+                        float target_factor = 0.6);
     void Split(Graph& graph);
     static bool Cmp(const SgpEdge& e1, const SgpEdge& e2);
-    void AdjustV2(Graph& graph, std::int64_t max_iterations, float target_factor);
+    void AdjustV2(Graph& graph, std::int64_t max_iterations, float target_factor,
+                  std::map<int64_t, std::string> id_device_map);
 };
 }  // namespace framework
 

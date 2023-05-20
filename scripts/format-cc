@@ -13,4 +13,7 @@ FLAGS="-i"
 if [ -n "$2" ]; then
     FLAGS=$2
 fi
+
+which clang-foramt
+clang-format --version
 ./scripts/batch.py --regex-cc --flags="$FLAGS" $1

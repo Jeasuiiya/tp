@@ -1,14 +1,16 @@
 #include "policy/sgp/graphPartition.h"
 
+#include "common/log.h"
+
 namespace framework {
 
 std::int64_t Partition::GetOpMemory(Graph& graph, const std::string& op) {
-    auto& node = graph.GetNode(op).value();
+    auto node = *graph.GetNode(op);
     return node->OutputMemory() + node->ComputeCost();
 }
 
-Partition::Partition(Graph& graph, std::int64_t group_num, std::vector<Device> devices) {
-    this->builder.ConstructBuilder(graph);
+Partition::Partition(Graph& graph, std::int64_t group_num, std::vector<Device> devices, float target_factor, int OOM) {
+    this->builder.ConstructBuilder(graph, OOM);
     std::vector<std::shared_ptr<NodeBase>>& op_graph_ops_dict = this->builder.graph.Nodes();
     std::int64_t graph_total_cost = 0;
     for (auto& node : op_graph_ops_dict) {
@@ -24,28 +26,26 @@ Partition::Partition(Graph& graph, std::int64_t group_num, std::vector<Device> d
         graph_total_cost += this->GetOpMemory(this->builder.graph, node->Name());
     }
     this->group_balance_cost = graph_total_cost / group_num;
-    std::cout << "this->group_balance_cost=" << this->group_balance_cost << std::endl;
-    std::cout << "graph_total_cost=" << graph_total_cost << std::endl;
     for (std::int64_t i = 0; i < group_num; i++) {
         group_list.emplace_back(i, this->group_balance_cost);
     }
-    this->GraphPlacement(this->builder.graph, std::move(devices));
+    this->GraphPlacement(this->builder.graph, std::move(devices), 500, target_factor);
 }
 
 void Partition::GraphPlacement(Graph& graph, std::vector<Device> devices, std::int64_t max_iterations,
                                float target_factor) {
-    this->Split(graph);
-    this->AdjustV2(this->builder.graph, max_iterations, target_factor);
     std::map<int64_t, std::string> id_device_map;
     for (uint64_t i = 0; i < this->group_list.size(); i++) {
         id_device_map[this->group_list[i].id] = devices[i].GetName();
     }
+    this->Split(graph);
+    this->AdjustV2(this->builder.graph, max_iterations, target_factor, id_device_map);
     for (auto& it : this->group_list) {
         std::set<std::string> op_member = it.op_member;
         for (const auto& op : op_member) {
             std::string device = id_device_map[it.id];
             this->op_group.insert(std::pair<std::string, std::string>(op, device));
-            std::cout << "Node: " << op << ",  Device_id: " << device << std::endl;
+            SPDLOG_DEBUG("Node: {}, Device id: {}", op, device);
         }
     }
 }
@@ -67,8 +67,6 @@ void Partition::Split(Graph& graph) {
         if (visited.count(op)) {
             continue;
         }
-        std::cout << "this->group_list[index].get_total_cost():" << this->group_list[index].GetTotalCost() << std::endl;
-        std::cout << "this->group_balance_cost:" << this->group_balance_cost << std::endl;
         if (this->group_list[index].GetTotalCost() >= this->group_balance_cost) {
             if (index != this->group_list.size() - 1) {
                 index = (index + 1) % device_num;
@@ -90,12 +88,24 @@ bool Partition::Cmp(const SgpEdge& e1, const SgpEdge& e2) {
     return e1.comm_cost > e2.comm_cost;
 }
 
-void Partition::AdjustV2(Graph& graph, std::int64_t max_iterations, float target_factor) {
+void Partition::AdjustV2(Graph& graph, std::int64_t max_iterations, float target_factor,
+                         std::map<int64_t, std::string> id_device_map) {
+    for (auto& edge : this->critical_edges) {
+        std::string pre = edge.pre_op;
+        std::string succ = edge.succ_op;
+        std::int64_t pre_group_id = this->op_group_dict[pre];
+        std::int64_t succ_group_id = this->op_group_dict[succ];
+        std::string device_pre = id_device_map[pre_group_id];
+        std::string device_succ = id_device_map[succ_group_id];
+        std::string task1 = device_pre.substr(device_pre.find("task:") + 5);
+        std::string task2 = device_succ.substr(device_succ.find("task:") + 5);
+        if (task1 != task2) {
+            edge.comm_cost *= 100;
+        }
+    }
     for (int i = 0; i < max_iterations; i++) {
         sort(this->critical_edges.begin(), this->critical_edges.end(), Cmp);
-        std::cout << "iteration:" << i + 1 << "/" << max_iterations << std::endl;
-        for (unsigned int j = 0; j < this->critical_edges.size(); j++) {
-            SgpEdge edge = this->critical_edges[i];
+        for (auto edge : this->critical_edges) {
             std::string pre = edge.pre_op;
             std::string succ = edge.succ_op;
             std::map<std::string, std::string> attr;

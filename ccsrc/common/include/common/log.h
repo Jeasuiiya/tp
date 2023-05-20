@@ -8,6 +8,12 @@ namespace framework::log {
 inline void Init() {
     spdlog::cfg::load_env_levels();
 }
+struct LogInit {
+    LogInit() {
+        Init();
+    }
+};
+static LogInit log_init;
 }  // namespace framework::log
 
 #endif

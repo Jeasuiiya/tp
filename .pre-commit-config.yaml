@@ -36,3 +36,8 @@ repos:
     entry: ./scripts/batch.py --binary cmake-lint --regex-cmake
     language: system
     files: "(^(./)?CMakeLists.txt$)|(^(./)?((ccsrc)|(tests))/.*/CMakeLists.txt$)|(^(./)?cmake/[^(third_party)].*cmake$)"
+  - id: "check-shell-lint"
+    name: "[shellcheck] Check for Shell Lint"
+    entry: ./scripts/shellcheck
+    language: system
+    files: ^(./)?scripts/.*$

@@ -5,6 +5,7 @@ import "ccsrc/adapters/tensorflow/rpc/graph.proto";
 
 message CallRequest {
     Graph graph = 1;
+    string policy = 2;
 }
 
 message CallResponse {

@@ -41,7 +41,7 @@ class Device {
     int64_t execute_time;  // 设备的执行时间
 
   public:
-    Device() = default;
+    Device() : type(framework::DeviceType::Cpu), memory(0), free_memory(0), execute_time(0) {}
     Device(DeviceType _type, std::string _name, int64_t _memory, int64_t _free_memory, int64_t _execute_time)
         :  // : status(std::move(_status)),
           type(std::move(_type)),

@@ -37,8 +37,16 @@ def framework_workspace0():
         build_file = "//:bazel/result.BUILD"
     )
 
+    new_git_repository(
+        name = "spdlog",
+        tag = "v1.12.0",
+        remote = "https://github.com/gabime/spdlog",
+        build_file = "//:bazel/spdlog.BUILD"
+    )
+
     http_archive(
         name = "global_pybind11_bazel",
         strip_prefix = "pybind11_bazel-fc56ce8a8b51e3dd941139d329b63ccfea1d304b",
         urls = ["https://github.com/pybind/pybind11_bazel/archive/fc56ce8a8b51e3dd941139d329b63ccfea1d304b.zip"],
     )
+

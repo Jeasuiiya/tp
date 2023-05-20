@@ -290,7 +290,6 @@ std::map<std::string, std::string> GetDeviceMapFromCostNodes(std::vector<framewo
            | ranges::to<std::map<std::string, std::string>>();
 }
 PYBIND11_MODULE(PYBIND11_CURRENT_MODULE_NAME, m) {
-    framework::log::Init();
     m.doc() = R"pbdoc(
         python graph
         -----------------------
@@ -477,9 +476,9 @@ PYBIND11_MODULE(PYBIND11_CURRENT_MODULE_NAME, m) {
                   return pybind11::cast(device_map);
               }
               if (policy == "sgp") {
-                  framework::Partition partition(*graph.GraphPtr(), devices.size(), devices);
-                  auto& device_map = partition.op_group;
-                  SPDLOG_DEBUG("sgp result:{}", device_map);
+                  framework::Partition partition(*graph.GraphPtr(), devices.size(), devices, 0.6, 1);
+                  auto device_map = partition.op_group;
+                  spdlog::debug("sgp result:{}", device_map);
                   return pybind11::cast(device_map);
               }
               return pybind11::none();

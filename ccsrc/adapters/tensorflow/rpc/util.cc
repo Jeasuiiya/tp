@@ -16,6 +16,9 @@ framework::rpc::Graph ConvertGraphToMessage(framework::Graph& graph) {
         rpc_node.set_name(n->Name());
         rpc_node.set_op(n->Op());
         rpc_node.set_device(n->Device());
+        rpc_node.set_computecost(n->ComputeCost());
+        rpc_node.set_persistent_memory(n->PersistentMemory());
+        rpc_node.set_output_memory(n->OutputMemory());
         for (const auto& i : n->Inputs()) {
             rpc_node.add_inputs(i);
         }
@@ -40,6 +43,9 @@ framework::Graph ConvertMessageToGraph(const framework::rpc::Graph& rpc_graph) {
         node.Name(n.name());
         node.Op(n.op());
         node.Device(n.device());
+        node.ComputeCost(n.computecost());
+        node.PersistentMemory(n.persistent_memory());
+        node.OutputMemory(n.output_memory());
         for (const auto& i : n.inputs()) {
             node.AddInput(i);
         }

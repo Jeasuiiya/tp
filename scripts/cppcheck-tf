@@ -1,7 +1,14 @@
 #!/usr/bin/env bash
 
+which cppcheck
+cppcheck --version
+
 cppcheck --enable=all \
 --suppress=danglingTempReference \
+--suppress=missingIncludeSystem \
+--suppress=missingInclude \
+--suppress=unmatchedSuppression \
+--inline-suppr \
 -I ccsrc/adapters/include \
 -I ccsrc/cluster/include \
 -I ccsrc/common/include \

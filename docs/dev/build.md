@@ -16,6 +16,7 @@ bazel build rpc_server --config=dbg
 ```bash
 # 依赖
 pip install tensorflow networkx
+export PYTHONPATH=$PWD/python
 ./bazel-bin/rpc_server localhost:9001
 TF_PLACEMENT_RPC_ADDRESS=localhost:9001 ./bazel-bin/tf-run-graph --graph=/path/to/graph --train_op=<trainop>
 ```
@@ -24,7 +25,7 @@ TF_PLACEMENT_RPC_ADDRESS=localhost:9001 ./bazel-bin/tf-run-graph --graph=/path/t
 
 环境变量
 
-`TF_PLACEMENT_POLICY`: 可选值：`aware`, `fddps`  
+`TF_PLACEMENT_POLICY`: 可选值：`aware`, `fddps`  , `trinity` 
 `TF_PLACEMENT_RPC_ADDRESS`: 使用aware方法时连接的RPC地址，需要提前运行`rpc_server`。例：`localhost:9001`, `unix://rpc_server.socket`
 
 

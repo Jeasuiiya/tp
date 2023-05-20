@@ -33,7 +33,7 @@ class RpcServiceClient {
     /**
      * call strategy rpc
      */
-    cpp::result<std::map<std::string, std::string>, Error> Call(const RpcGraph& graph);
+    cpp::result<std::map<std::string, std::string>, Error> Call(const RpcGraph& graph, std::string policy);
 
   private:
     std::unique_ptr<RpcService::Stub> stub_;

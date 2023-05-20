@@ -22,4 +22,10 @@ add_cc_gtest(
   DEPENDS AwarePolicy CostGraph
   DEFINITIONS SOURCE_PYTHONPATH=${CMAKE_SOURCE_DIR}/python)
 
+add_cc_gtest(
+  test_trinity 
+  SRCS test_trinity.cc 
+  DEPENDS TrinityPolicy AwarePolicy CostGraph
+  DEFINITIONS SOURCE_PYTHONPATH=${CMAKE_SOURCE_DIR}/python)
+
 add_cc_gtest(test_fddps SRCS test_fddps.cc DEPENDS FDDPSPolicy CostGraph)

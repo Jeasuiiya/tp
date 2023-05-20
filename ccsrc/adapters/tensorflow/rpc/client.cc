@@ -4,8 +4,10 @@
 #include <memory>
 #include <string>
 
+#include "common/log.h"
 #include "fmt/format.h"
 #include "grpcpp/grpcpp.h"
+
 using framework::rpc::CallRequest;
 using framework::rpc::CallResponse;
 using framework::rpc::RpcService;
@@ -19,11 +21,13 @@ RpcServiceClient::RpcServiceClient(std::shared_ptr<Channel> channel) : stub_(Rpc
 
 // Assembles the client's payload, sends it and presents the response back
 // from the server.
-cpp::result<std::map<std::string, std::string>, Error> RpcServiceClient::Call(const RpcGraph& graph) {
+cpp::result<std::map<std::string, std::string>, Error> RpcServiceClient::Call(const RpcGraph& graph,
+                                                                              std::string policy) {
     try {
         // Data we are sending to the server.
         CallRequest request;
         request.set_allocated_graph(new RpcGraph(graph));
+        request.set_policy(policy);
 
         // Container for the data we expect from the server.
         CallResponse reply;
@@ -37,7 +41,7 @@ cpp::result<std::map<std::string, std::string>, Error> RpcServiceClient::Call(co
 
         // Act upon its status.
         if (!status.ok() || !reply.success()) {
-            std::cout << status.error_code() << ": " << status.error_message() << std::endl;
+            SPDLOG_ERROR("{}:{}", status.error_code(), status.error_message());
             return cpp::fail(Error(Kind::Internal, fmt::format("{}:{}", status.error_code(), status.error_message())));
         }
         return GetDeviceMapFromMessage(reply.graph());

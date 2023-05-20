@@ -24,4 +24,6 @@ if [ ! -f $BUILD_DIR/compile_commands.json ]; then
     $SCRIPT_DIR/configure --build $BUILD_DIR
 fi
 
+which clang-tidy
+clang-tidy --version
 $SCRIPT_DIR/run-clang-tidy -p $BUILD_DIR $TIDY_FLAGS $1

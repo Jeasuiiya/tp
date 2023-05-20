@@ -1,4 +1,5 @@
 add_subdirectory(include)
 add_subdirectory(aware)
+add_subdirectory(trinity)
 add_subdirectory(fd-dps)
 add_subdirectory(sgp)

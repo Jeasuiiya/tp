@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 
 set -e
+which bazel
+bazel --version
 ROOT_DIR=$(cd "$(dirname "$0")/.." || exit;pwd)
 cd $ROOT_DIR
 function usage() {
@@ -20,7 +22,6 @@ _BAZEL_WORKSPACE=${ROOT_DIR##*/}
 while true; do
     if [[ "$1" == "--help" ]]; then
         usage
-        exit 1
     elif [[ "$1" == "--config" ]]; then
         _TF_COFNIG=1
     elif [[ "$1" == "--config-only" ]]; then
@@ -30,7 +31,7 @@ while true; do
         _TF_BUILD_DEST="$1"
     elif [[ "$1" == "--" ]]; then
         shift
-        _BAZEL_FLAGS="$@"
+        _BAZEL_FLAGS="$*"
         break
     elif [[ -z "$1" ]]; then
         break

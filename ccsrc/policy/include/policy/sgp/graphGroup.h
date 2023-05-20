@@ -10,7 +10,7 @@ class SgpEdge {
     std::int64_t comm_cost;
     std::int64_t choosed_times;
 
-    SgpEdge(std::string& pre, std::string& succ, std::int64_t comm) {
+    SgpEdge(const std::string& pre, const std::string& succ, std::int64_t comm) {
         this->pre_op = pre;
         this->succ_op = succ;
         this->comm_cost = comm;

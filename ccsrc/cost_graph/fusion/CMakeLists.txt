@@ -1,0 +1,1 @@
+add_library(CostGraph aware_fusion.cc)

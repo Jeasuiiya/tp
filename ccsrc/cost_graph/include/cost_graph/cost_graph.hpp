@@ -19,7 +19,7 @@ class CostEdge {
     int64_t comm_cost;
 
   public:
-    CostEdge() = default;
+    CostEdge() : comm_cost(0) {}
     explicit CostEdge(CostEdge* edge)
         : left_node(edge->GetLeftNode()), right_node(edge->GetRightNode()), comm_cost(edge->GetCommCost()){};
     CostEdge(std::string _left_node, std::string _right_node, int64_t _comm_cost)
@@ -47,7 +47,7 @@ class CostNode {
     int64_t end_time;
 
   public:
-    CostNode() = default;
+    CostNode() : compute_cost(0), memory_cost(0), output_memory(0), start_time(0), end_time(0) {}
     explicit CostNode(NodeBase node)
         : name(std::move(node.Name())),
           device(std::move(node.Device())),

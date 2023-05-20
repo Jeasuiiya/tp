@@ -12,9 +12,10 @@
 #include "adapters/tensorflow/rpc/graph.pb.h"
 #include "adapters/tensorflow/rpc/util.h"
 #include "common/fmt.hpp"
+#include "common/log.h"
 #include "cost_graph/common.hpp"
 #include "google/protobuf/text_format.h"
-#include "jsoncpp/json/json.h"
+#include "json/json.h"
 #include "policy/fd-dps/fddps_algorithm.h"
 #include "policy/sgp/graphPartition.h"
 #include "range/v3/all.hpp"
@@ -36,10 +37,7 @@ void CalculateMemory(std::shared_ptr<framework::NodeBase> node) {
     for (auto inputport : node->InputPorts()) {
         std::int64_t input_size = 1;
         framework::shape_t shape = inputport.entity.tensor.shape;
-        for (const auto& dim : shape) {
-            input_size *= dim;
-        }
-        framework::DataType dtype = inputport.entity.tensor.dtype;
+        input_size = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<int>());
         input_size *= 4;
         input_total_size += input_size;
     }
@@ -48,10 +46,7 @@ void CalculateMemory(std::shared_ptr<framework::NodeBase> node) {
     for (auto outputport : node->OutputPorts()) {
         std::int64_t output_size = 1;
         framework::shape_t shape = outputport.entity.shape;
-        for (const auto& dim : shape) {
-            output_size *= dim;
-        }
-        framework::DataType dtype = outputport.entity.dtype;
+        output_size = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<int>());
         output_size *= 4;
         output_total_size += output_size;
     }
@@ -68,29 +63,29 @@ void CalculateCost(std::shared_ptr<framework::NodeBase> node) {
     node->ComputeCost(compute_cost);
 }
 
-std::string GetUseCPU() {
-    const char* fetch_node = getenv("USECPU");
+float GetFactor() {
+    const char* fetch_node = getenv("TARGET_FACTOR");
     if (!fetch_node) {
-        LOG(WARNING) << "USECPU is not set";
-        return "use";
+        SPDLOG_WARN("batch size is not set");
+        return 1.2;
     }
-    return std::string{fetch_node};
+    return std::stof(fetch_node);
 }
 
 std::string GetGraphJson() {
     const char* fetch_node = getenv("GRAPH");
     if (!fetch_node) {
-        LOG(WARNING) << "graph path is not set";
+        SPDLOG_WARN("graph path is not set");
         return "";
     }
     return std::string{fetch_node};
 }
 
-int GetBatchSize() {
-    const char* fetch_node = getenv("BATCH_SIZE");
+int GetOOM() {
+    const char* fetch_node = getenv("OOM");
     if (!fetch_node) {
-        LOG(WARNING) << "batch size is not set";
-        return 32;
+        SPDLOG_WARN("OOM is not set");
+        return 1;
     }
     return std::stoi(fetch_node);
 }
@@ -98,49 +93,16 @@ int GetBatchSize() {
 int GetDeviceNum() {
     const char* fetch_node = getenv("DEVICE_NUM");
     if (!fetch_node) {
-        LOG(WARNING) << "device num is not set";
+        SPDLOG_WARN("device num is not set");
         return 2;
     }
     return std::stoi(fetch_node);
 }
 
-std::string GetGtemFetchNode() {
-    const char* fetch_node = getenv("TF_GRAPH_FETCH_NODE");
-    if (!fetch_node) {
-        LOG(WARNING) << "train_op is not set";
-        return "";
-    }
-    return std::string{fetch_node};
-}
-
-std::string GetPlacementConfPrefixEnvVar() {
-    const char* prefix_env = getenv("TF_PLACEMENT_PREFIX");
-    if (!prefix_env) {
-        LOG(WARNING) << "TF_PLACEMENT_PREFIX is not set";
-        return "";
-    }
-
-    std::string result = prefix_env;
-
-    return result;
-}
-
-std::string GetPlacementConfPathEnvVar() {
-    const char* prefix_env = getenv("TF_PLACEMENT_PATH");
-    if (!prefix_env) {
-        LOG(WARNING) << "TF_PLACEMENT_PATH is not set";
-        return "";
-    }
-
-    std::string result = prefix_env;
-
-    return result;
-}
-
 std::string GetPlacementRpcAddressEnvVar() {
     const char* address = getenv("TF_PLACEMENT_RPC_ADDRESS");
     if (!address) {
-        LOG(WARNING) << "TF_PLACEMENT_RPC_ADDRESS is not set";
+        SPDLOG_WARN("TF_PLACEMENT_RPC_ADDRESS is not set");
         return "";
     }
     return std::string{address};
@@ -151,6 +113,7 @@ enum class PolicyType {
     Aware,
     FdDps,
     SGP,
+    Trinity,
 };
 
 PolicyType GetPlacementPolicyVar() {
@@ -167,6 +130,9 @@ PolicyType GetPlacementPolicyVar() {
     }
     if (policy_str == "SGP") {
         return PolicyType::SGP;
+    }
+    if (policy_str == "trinity") {
+        return PolicyType::Trinity;
     }
     return PolicyType::None;
 }
@@ -204,11 +170,8 @@ void SetDevice(Graph& g, std::map<std::string, std::string> node_to_device) {
         }
     }
 }
-std::map<std::string, std::string> GetDeviceMapFromGraph(framework::Graph& graph) {
-    return graph.Nodes() | ranges::views::transform([](auto& a) { return std::make_pair(a->Name(), a->Device()); })
-           | ranges::to<std::map<std::string, std::string>>();
-}
 
+// cppcheck-suppress constParameterReference
 std::map<std::string, std::string> GetDeviceMapFromCostNodes(std::vector<framework::CostNode>& nodes) {
     return nodes | ranges::views::transform([](auto& a) { return std::make_pair(a.GetName(), a.GetDevice()); })
            | ranges::to<std::map<std::string, std::string>>();
@@ -244,9 +207,9 @@ framework::Graph ConvertGraphDefToGraph(const GraphDef& graph_def) {
             if (input_node.rfind('^', 0) == 0) {
                 input_node = input_node.substr(1);
             }
-            for (Json::Value dim : jsonnode["inputs"][input_node]["shape"]) {
-                shape.push_back(dim.asInt());
-            }
+            const auto& inputshape = jsonnode["inputs"][input_node]["shape"];
+            std::transform(inputshape.begin(), inputshape.end(), std::back_inserter(shape),
+                           [](const auto& dim) { return dim.asInt(); });
             dtype = type_map[jsonnode["inputs"][input_node]["dtype"].asString()];
             auto result = node.AddInputPort(input_node, indexi, id, dtype, shape);
             node.AddInput(input);
@@ -257,9 +220,9 @@ framework::Graph ConvertGraphDefToGraph(const GraphDef& graph_def) {
             node.AddOutput(i.first->name());
             framework::shape_t shape;
             framework::DataType dtype;
-            for (Json::Value dim : jsonnode["outputs"][std::to_string(i.second)]["shape"]) {
-                shape.push_back(dim.asInt());
-            }
+            const auto& outputshape = jsonnode["outputs"][std::to_string(i.second)]["shape"];
+            std::transform(outputshape.begin(), outputshape.end(), std::back_inserter(shape),
+                           [](const auto& dim) { return dim.asInt(); });
             dtype = type_map[jsonnode["outputs"][std::to_string(i.second)]["dtype"].asString()];
             auto result = node.AddOutputPort(dtype, shape, i.second);
         }
@@ -273,9 +236,9 @@ framework::Graph ConvertGraphDefToGraph(const GraphDef& graph_def) {
     return graph;
 }
 
+// cppcheck-suppress unusedFunction
 Status PlacementPass::Run(const GraphOptimizationPassOptions& options) {
-    VLOG(INFO) << "PlacementPass";
-    VLOG(INFO) << "is_function_graph: " << options.is_function_graph;
+    SPDLOG_INFO("PlacementPass is_function_graph {}", options.is_function_graph);
 
     GraphDef graph_def;
     (*options.graph)->ToGraphDef(&graph_def);
@@ -284,26 +247,77 @@ Status PlacementPass::Run(const GraphOptimizationPassOptions& options) {
     std::map<std::string, std::string> device_map;
     auto policy = GetPlacementPolicyVar();
     if (policy == PolicyType::None) {
-        LOG(WARNING) << "TF_PLACEMENT_POLICY is not set. skip PlacementPass.";
+        SPDLOG_WARN("F_PLACEMENT_POLICY is not set. skip PlacementPass.");
         return Status::OK();
     }
-
-    if (policy == PolicyType::Aware) {
+    if (policy == PolicyType::Aware || policy == PolicyType::Trinity) {
         auto rpc_address = GetPlacementRpcAddressEnvVar();
+        for (const auto& node : graph.Nodes()) {
+            std::int64_t comm_cost_input = 1;
+            std::int64_t comm_cost_output = 1;
+            std::map<std::string, std::string> attr = node->Attrs();
+            for (std::string input : node->Inputs()) {
+                if (attr.count("input:" + input) > 0) {
+                    std::string shape = attr.at("input:" + input);
+                    if (!shape.empty()) {
+                        std::string space = " ";
+                        std::vector<std::int64_t> number;
+                        size_t pos = 0;
+                        while ((pos = shape.find(space)) != string::npos) {
+                            number.push_back(atoi(shape.substr(0, pos).c_str()));
+                            shape.erase(0, pos + space.length());
+                        }
+                        std::int64_t comm_cost =
+                            std::accumulate(number.begin(), number.end(), 1, std::multiplies<int>());
+                        comm_cost *= sizeof(attr["type"]);
+                        comm_cost_input += comm_cost;
+                    }
+                }
+            }
+            node->PersistentMemory(comm_cost_input);
+            for (std::string output : node->Outputs()) {
+                if (attr.count("output:" + output) > 0) {
+                    std::string shape = attr.at("output:" + output);
+                    if (!shape.empty()) {
+                        std::string space = " ";
+                        std::vector<std::int64_t> number;
+                        size_t pos = 0;
+                        while ((pos = shape.find(space)) != string::npos) {
+                            number.push_back(atoi(shape.substr(0, pos).c_str()));
+                            shape.erase(0, pos + space.length());
+                        }
+                        std::int64_t comm_cost =
+                            std::accumulate(number.begin(), number.end(), 1, std::multiplies<int>());
+                        comm_cost *= sizeof(attr["type"]);
+                        comm_cost_output += comm_cost;
+                    }
+                }
+            }
+            node->OutputMemory(comm_cost_output);
+            std::int64_t compute_cost =
+                ceil(0.2
+                     * ceil((node->PersistentMemory() + node->OutputMemory())
+                            / (1
+                               + exp(ceil(-(fabs(node->PersistentMemory() - node->OutputMemory()))
+                                          / (1 + node->OutputMemory()))))));
+            node->ComputeCost(compute_cost);
+        }
         if (rpc_address.empty()) {
-            LOG(WARNING) << "TF_PLACEMENT_RPC_ADDRESS is not set. skip!";
+            SPDLOG_WARN("TF_PLACEMENT_RPC_ADDRESS is not set. skip!");
             return Status::OK();
         }
         auto rpc_graph = framework::ConvertGraphToMessage(graph);
 
         framework::RpcServiceClient client(grpc::CreateChannel(rpc_address, grpc::InsecureChannelCredentials()));
-        auto r = client.Call(rpc_graph);
+        const char* policy_ = getenv("TF_PLACEMENT_POLICY");
+        std::string policy_str{policy_};
+        auto r = client.Call(rpc_graph, policy_str);
         if (r.has_error()) {
-            VLOG(WARNING) << fmt::format("call rpc error. {}", r.error().text);
+            SPDLOG_WARN("call rpc error. {}", r.error().text);
             return Status::OK();
         }
         device_map = std::move(r.value());
-        VLOG(INFO) << fmt::to_string(device_map);
+        SPDLOG_INFO(fmt::to_string(device_map));
     } else if (policy == PolicyType::FdDps) {
         std::vector<framework::Device> devices;
         for (auto* i : options.device_set->devices()) {
@@ -314,7 +328,7 @@ Status PlacementPass::Run(const GraphOptimizationPassOptions& options) {
         framework::FDDPSAlgorithm fddps_algorithm(cost_graph, devices);
         auto r = fddps_algorithm.Placement();
         if (r.has_error()) {
-            VLOG(INFO) << fmt::format("call fddps error. {}", r.error().text);
+            SPDLOG_INFO("call fddps error. {}", r.error().text);
             return Status::OK();
         }
         device_map = GetDeviceMapFromCostNodes(r.value());
@@ -322,15 +336,11 @@ Status PlacementPass::Run(const GraphOptimizationPassOptions& options) {
         std::vector<framework::Device> devices;
         for (auto* i : options.device_set->devices()) {
             auto memory = i->attributes().memory_limit();
-            if (GetUseCPU() != "use") {
-                if (i->device_type() != "CPU") {
-                    devices.emplace_back(framework::DeviceTypeFrom(i->device_type()), i->name(), memory, memory, 0);
-                }
-            } else {
+            if (i->device_type() != "CPU") {
                 devices.emplace_back(framework::DeviceTypeFrom(i->device_type()), i->name(), memory, memory, 0);
             }
         }
-        framework::Partition Partition(graph, GetDeviceNum(), devices);
+        framework::Partition Partition(graph, GetDeviceNum(), devices, GetFactor(), GetOOM());
         device_map = Partition.op_group;
     }
 
