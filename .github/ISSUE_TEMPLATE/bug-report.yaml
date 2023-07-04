@@ -1,0 +1,37 @@
+name: Bug Report
+description: Found something you weren't expecting? Report it here!
+labels: kind/bug
+body:
+- type: textarea
+  id: description
+  attributes:
+    label: 问题描述
+    description: |
+      简要描述问题      
+  validations:
+    required: true
+- type: input
+  id: version
+  attributes:
+    label: 版本 Version
+    description: 提供分支、版本、标签、提交等信息
+  validations:
+    required: true
+- type: textarea
+  id: reproduce
+  attributes:
+    label: 复现步骤
+    description: |
+      详细描述问题的复现步骤、方法      
+  validations:
+    required: true
+- type: textarea
+  id: logs
+  attributes:
+    label: 日志
+    description: 可以体现问题的日志
+- type: textarea
+  id: env
+  attributes:
+    label: 运行环境
+    description: 提供操作系统版本、Python、CUDA、cudnn、g++等版本信息

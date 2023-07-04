@@ -28,7 +28,6 @@ jobs:
       continue-on-error: true
       with:
         python-version: "3.9"
-        cache: "pip"
     - run: pip install -r dev-requirements.txt
     - name: "[black] Check for Python Format"
       id: check-py-format
