@@ -1,5 +1,8 @@
 #include "adapters/tensorflow/pass/placement_pass.h"
 
+#include <cassert>
+#include <fstream>
+#include <iostream>
 #include <map>
 #include <string>
 #include <utility>
@@ -10,11 +13,106 @@
 #include "adapters/tensorflow/rpc/util.h"
 #include "common/fmt.hpp"
 #include "cost_graph/common.hpp"
+#include "google/protobuf/text_format.h"
+#include "jsoncpp/json/json.h"
 #include "policy/fd-dps/fddps_algorithm.h"
+#include "policy/sgp/graphPartition.h"
 #include "range/v3/all.hpp"
+#include "tensorflow/core/framework/cost_graph.pb.h"
+#include "tensorflow/core/framework/step_stats.pb.h"
+#include "tensorflow/core/framework/tensor_shape.pb.h"
+#include "tensorflow/core/grappler/clusters/virtual_cluster.h"
+#include "tensorflow/core/grappler/grappler_item.h"
 #include "tensorflow/tsl/platform/status.h"
 
 namespace tensorflow {
+std::map<std::string, framework::DataType> type_map = {{"int32", framework::DataType::I32},
+                                                       {"float32", framework::DataType::F32},
+                                                       {"float32_ref", framework::DataType::F32}};
+void CalculateMemory(std::shared_ptr<framework::NodeBase> node) {
+    // 输入数据大小
+    std::int64_t input_total_size = 1;
+    std::int64_t output_total_size = 1;
+    for (auto inputport : node->InputPorts()) {
+        std::int64_t input_size = 1;
+        framework::shape_t shape = inputport.entity.tensor.shape;
+        for (const auto& dim : shape) {
+            input_size *= dim;
+        }
+        framework::DataType dtype = inputport.entity.tensor.dtype;
+        input_size *= 4;
+        input_total_size += input_size;
+    }
+    node->InputMemory(input_total_size);
+    // 输出数据大小
+    for (auto outputport : node->OutputPorts()) {
+        std::int64_t output_size = 1;
+        framework::shape_t shape = outputport.entity.shape;
+        for (const auto& dim : shape) {
+            output_size *= dim;
+        }
+        framework::DataType dtype = outputport.entity.dtype;
+        output_size *= 4;
+        output_total_size += output_size;
+    }
+    node->OutputMemory(output_total_size);
+    // 节点结构大小
+    node->PersistentMemory(sizeof(*node));
+}
+
+void CalculateCost(std::shared_ptr<framework::NodeBase> node) {
+    std::int64_t compute_cost = ceil(
+        0.2
+        * ceil((node->InputMemory() + node->OutputMemory())
+               / (1 + exp(ceil(-(fabs(node->InputMemory() - node->OutputMemory())) / (1 + node->OutputMemory()))))));
+    node->ComputeCost(compute_cost);
+}
+
+std::string GetUseCPU() {
+    const char* fetch_node = getenv("USECPU");
+    if (!fetch_node) {
+        LOG(WARNING) << "USECPU is not set";
+        return "use";
+    }
+    return std::string{fetch_node};
+}
+
+std::string GetGraphJson() {
+    const char* fetch_node = getenv("GRAPH");
+    if (!fetch_node) {
+        LOG(WARNING) << "graph path is not set";
+        return "";
+    }
+    return std::string{fetch_node};
+}
+
+int GetBatchSize() {
+    const char* fetch_node = getenv("BATCH_SIZE");
+    if (!fetch_node) {
+        LOG(WARNING) << "batch size is not set";
+        return 32;
+    }
+    return std::stoi(fetch_node);
+}
+
+int GetDeviceNum() {
+    const char* fetch_node = getenv("DEVICE_NUM");
+    if (!fetch_node) {
+        LOG(WARNING) << "device num is not set";
+        return 2;
+    }
+    return std::stoi(fetch_node);
+}
+
+std::string GetGtemFetchNode() {
+    const char* fetch_node = getenv("TF_GRAPH_FETCH_NODE");
+    if (!fetch_node) {
+        LOG(WARNING) << "train_op is not set";
+        return "";
+    }
+    return std::string{fetch_node};
+}
+
 std::string GetPlacementConfPrefixEnvVar() {
     const char* prefix_env = getenv("TF_PLACEMENT_PREFIX");
     if (!prefix_env) {
@@ -52,6 +150,7 @@ enum class PolicyType {
     None,
     Aware,
     FdDps,
+    SGP,
 };
 
 PolicyType GetPlacementPolicyVar() {
@@ -65,6 +164,9 @@ PolicyType GetPlacementPolicyVar() {
     }
     if (policy_str == "fddps") {
         return PolicyType::FdDps;
+    }
+    if (policy_str == "SGP") {
+        return PolicyType::SGP;
     }
     return PolicyType::None;
 }
@@ -98,16 +200,10 @@ void SetDevice(Graph& g, std::map<std::string, std::string> node_to_device) {
         auto* node = g.FindNodeId(i);
         auto find_iter = node_to_device.find(node->name());
         if (find_iter != node_to_device.end()) {
-            // VLOG(0) << "before assigned:" << node->assigned_device_name();
-            // VLOG(0) << "before requested:" << node->requested_device();
             node->set_requested_device(find_iter->second);
-            // node->set_assigned_device_name(device_num);
-            // VLOG(0) << "after assigned:" << node->assigned_device_name();
-            // VLOG(0) << "after requested:" << node->requested_device();
         }
     }
 }
-
 std::map<std::string, std::string> GetDeviceMapFromGraph(framework::Graph& graph) {
     return graph.Nodes() | ranges::views::transform([](auto& a) { return std::make_pair(a->Name(), a->Device()); })
            | ranges::to<std::map<std::string, std::string>>();
@@ -121,37 +217,58 @@ std::map<std::string, std::string> GetDeviceMapFromCostNodes(std::vector<framewo
 framework::Graph ConvertGraphDefToGraph(const GraphDef& graph_def) {
     framework::Graph graph;
     auto context = ConvertContext(graph_def);
-
+    Json::Reader reader;
+    Json::Value root;
+    std::ifstream is;
+    is.open(GetGraphJson(), std::ios::binary);
+    reader.parse(is, root);
     for (const auto& node_def : graph_def.node()) {
+        auto jsonnode = root[node_def.name()];
         framework::NodeBase node;
+        node.Attrs().insert(
+            std::pair<std::string, std::string>("colocation_group", jsonnode["colocation_group"].asString()));
         node.Name(node_def.name());
         node.Op(node_def.op());
         node.Device(node_def.device());
-        // input data
         for (int id = 0; id < node_def.input_size(); id++) {
-            const std::string& inputbyid = node_def.input(id);
-            auto view = inputbyid | ranges::views::split(':') | ranges::to<std::vector<std::string>>();
+            const std::string& input = node_def.input(id);
+            auto view = input | ranges::views::split(':') | ranges::to<std::vector<std::string>>();
             std::string index = "0";
             if (view.size() == 2) {
                 index = view[1];
             }
-            std::string input_data = fmt::format("{}:{}", view[0], index);
             std::string input_node = view[0];
-            node.InputsData().push_back(input_data);
-            node.AddInput(input_node);
+            framework::shape_t shape;
+            framework::DataType dtype;
+            int indexi = std::stoi(index);
+            if (input_node.rfind('^', 0) == 0) {
+                input_node = input_node.substr(1);
+            }
+            for (Json::Value dim : jsonnode["inputs"][input_node]["shape"]) {
+                shape.push_back(dim.asInt());
+            }
+            dtype = type_map[jsonnode["inputs"][input_node]["dtype"].asString()];
+            auto result = node.AddInputPort(input_node, indexi, id, dtype, shape);
+            node.AddInput(input);
         }
         auto sorted_outputs = std::move(context.name_to_output[node_def.name()]) | ranges::actions::unique
                               | ranges::actions::sort([](const auto& a, auto& b) { return a.second < b.second; });
         for (const auto& i : sorted_outputs) {
             node.AddOutput(i.first->name());
-            auto outputs_data = fmt::format("{}:{}", node_def.name(), i.second);
-            node.OutputsData().push_back(outputs_data);
+            framework::shape_t shape;
+            framework::DataType dtype;
+            for (Json::Value dim : jsonnode["outputs"][std::to_string(i.second)]["shape"]) {
+                shape.push_back(dim.asInt());
+            }
+            dtype = type_map[jsonnode["outputs"][std::to_string(i.second)]["dtype"].asString()];
+            auto result = node.AddOutputPort(dtype, shape, i.second);
         }
-        auto attrmap = node_def.attr();
-        std::string shapevalue;
-        shapevalue = attrmap["shape"].s();
-        node.Attrs().insert(std::pair<std::string, std::string>("shape", shapevalue));
+        node.OutputsNum(node.Outputs().size());
         graph.AddNode(node);
+    }
+    for (auto node : graph.Nodes()) {
+        CalculateMemory(node);
+        CalculateCost(node);
     }
     return graph;
 }
@@ -163,12 +280,14 @@ Status PlacementPass::Run(const GraphOptimizationPassOptions& options) {
     GraphDef graph_def;
     (*options.graph)->ToGraphDef(&graph_def);
     auto graph = ConvertGraphDefToGraph(graph_def);
+
     std::map<std::string, std::string> device_map;
     auto policy = GetPlacementPolicyVar();
     if (policy == PolicyType::None) {
         LOG(WARNING) << "TF_PLACEMENT_POLICY is not set. skip PlacementPass.";
         return Status::OK();
     }
+
     if (policy == PolicyType::Aware) {
         auto rpc_address = GetPlacementRpcAddressEnvVar();
         if (rpc_address.empty()) {
@@ -189,8 +308,7 @@ Status PlacementPass::Run(const GraphOptimizationPassOptions& options) {
         std::vector<framework::Device> devices;
         for (auto* i : options.device_set->devices()) {
             auto memory = i->attributes().memory_limit();
-            devices.emplace_back(framework::DeviceStatus::Idle, framework::DeviceTypeFrom(i->device_type()), i->name(),
-                                 memory, memory, 0);
+            devices.emplace_back(framework::DeviceTypeFrom(i->device_type()), i->name(), memory, memory, 0);
         }
         framework::CostGraph cost_graph = ConvertGraphToCostGraph(graph);
         framework::FDDPSAlgorithm fddps_algorithm(cost_graph, devices);
@@ -200,6 +318,20 @@ Status PlacementPass::Run(const GraphOptimizationPassOptions& options) {
             return Status::OK();
         }
         device_map = GetDeviceMapFromCostNodes(r.value());
+    } else if (policy == PolicyType::SGP) {
+        std::vector<framework::Device> devices;
+        for (auto* i : options.device_set->devices()) {
+            auto memory = i->attributes().memory_limit();
+            if (GetUseCPU() != "use") {
+                if (i->device_type() != "CPU") {
+                    devices.emplace_back(framework::DeviceTypeFrom(i->device_type()), i->name(), memory, memory, 0);
+                }
+            } else {
+                devices.emplace_back(framework::DeviceTypeFrom(i->device_type()), i->name(), memory, memory, 0);
+            }
+        }
+        framework::Partition Partition(graph, GetDeviceNum(), devices);
+        device_map = Partition.op_group;
     }
 
     SetDevice(**options.graph, device_map);

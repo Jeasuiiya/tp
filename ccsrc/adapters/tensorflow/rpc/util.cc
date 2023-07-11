@@ -19,15 +19,15 @@ framework::rpc::Graph ConvertGraphToMessage(framework::Graph& graph) {
         for (const auto& i : n->Inputs()) {
             rpc_node.add_inputs(i);
         }
-        for (const auto& i : n->InputsData()) {
-            rpc_node.add_inputs_data(i);
-        }
+        // for (const auto& i : n->InputsData()) {
+        //     rpc_node.add_inputs_data(i);
+        // }
         for (const auto& i : n->Outputs()) {
             rpc_node.add_outputs(i);
         }
-        for (const auto& i : n->OutputsData()) {
-            rpc_node.add_outputs_data(i);
-        }
+        // for (const auto& i : n->OutputsData()) {
+        //     rpc_node.add_outputs_data(i);
+        // }
         rpc_node.mutable_attr()->insert({"shape", n->Attrs()["shape"]});
         rpc_graph.mutable_node()->Add(std::move(rpc_node));
     }
@@ -43,15 +43,15 @@ framework::Graph ConvertMessageToGraph(const framework::rpc::Graph& rpc_graph) {
         for (const auto& i : n.inputs()) {
             node.AddInput(i);
         }
-        for (const auto& i : n.inputs_data()) {
-            node.AddInputsData(i);
-        }
+        // for (const auto& i : n.inputs_data()) {
+        //     node.AddInputsData(i);
+        // }
         for (const auto& i : n.outputs()) {
             node.AddOutput(i);
         }
-        for (const auto& i : n.outputs_data()) {
-            node.AddOutputsData(i);
-        }
+        // for (const auto& i : n.outputs_data()) {
+        //     node.AddOutputsData(i);
+        // }
         auto shape_find = n.attr().find("shape");
         std::string shape;
         if (shape_find != n.attr().end()) {

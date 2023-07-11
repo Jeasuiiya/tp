@@ -48,9 +48,10 @@ class MakeScheduleContext:
     used for saving arguments for parallelizing function
     """
 
-    def __init__(self, func, devices=()) -> None:
+    def __init__(self, func, devices=(), policy="fddps") -> None:
         self.func = func
         self.devices = devices
+        self.policy = policy
         self.args = None
         self.kwargs = None
 
@@ -65,7 +66,7 @@ class MakeScheduleContext:
         g = gw.graph
         # call strategy search
 
-        device_map = search_policy(g, self.devices)
+        device_map = search_policy(g, self.devices, self.policy)
         # g.get_node("add_1").device = "TFRT_CPU_0"
         # g.get_node("custom_jvp_call_1").device = "dev:1"
         # g.get_node("mul_1").device = "TFRT_CPU_0"
@@ -97,7 +98,7 @@ class MakeScheduleContext:
         return ctx
 
 
-def parallelize(func: Optional[Callable] = None, *, devices=None):
+def parallelize(func: Optional[Callable] = None, *, devices=None, policy="fddps"):
     """
     parallelize a function
 
@@ -112,7 +113,7 @@ def parallelize(func: Optional[Callable] = None, *, devices=None):
     """
 
     def decorator(func):
-        make_ctx = MakeScheduleContext(func, devices or ())
+        make_ctx = MakeScheduleContext(func, devices or (), policy or "fddps")
 
         def schedule_level(ctx, level, flat_args):
             # todo(huangchengchuang): all block in level could be parallelized

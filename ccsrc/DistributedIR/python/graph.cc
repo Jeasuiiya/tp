@@ -17,6 +17,7 @@
 #include "cost_graph/cost_graph.hpp"
 #include "fmt/format.h"
 #include "policy/fd-dps/fddps_algorithm.h"
+#include "policy/sgp/graphPartition.h"
 #include "range/v3/algorithm/transform.hpp"
 #include "range/v3/range/conversion.hpp"
 
@@ -451,18 +452,29 @@ PYBIND11_MODULE(PYBIND11_CURRENT_MODULE_NAME, m) {
                | ranges::to_vector;
         // return r.value() | ranges::views::values | ranges::to_vector;
     });
-    m.def("search_policy", [](PyGraph& graph, std::vector<PyDevice> devices) -> pybind11::object {
-        spdlog::debug("devices:{}", devices);
-        framework::CostGraph cost_graph = framework::ConvertGraphToCostGraph(*graph.GraphPtr());
-        framework::FDDPSAlgorithm fddps_algorithm(cost_graph, std::move(devices));
-        auto r = fddps_algorithm.Placement();
-        if (r.has_error()) {
-            spdlog::error("call fddps error. {}", r.error().text);
-            return pybind11::none();
-        }
-        auto device_map = GetDeviceMapFromCostNodes(r.value());
-        return pybind11::cast(device_map);
-    });
+    m.def("search_policy",
+          [](PyGraph& graph, std::vector<PyDevice> devices, const std::string& policy) -> pybind11::object {
+              spdlog::debug("devices:{}", devices);
+              spdlog::debug("policy:{}", policy);
+              if (policy == "fddps") {
+                  framework::CostGraph cost_graph = framework::ConvertGraphToCostGraph(*graph.GraphPtr());
+                  framework::FDDPSAlgorithm fddps_algorithm(cost_graph, std::move(devices));
+                  auto r = fddps_algorithm.Placement();
+                  if (r.has_error()) {
+                      spdlog::error("call fddps error. {}", r.error().text);
+                      return pybind11::none();
+                  }
+                  auto device_map = GetDeviceMapFromCostNodes(r.value());
+                  return pybind11::cast(device_map);
+              }
+              if (policy == "sgp") {
+                  framework::Partition partition(*graph.GraphPtr(), devices.size(), devices);
+                  auto& device_map = partition.op_group;
+                  spdlog::debug("sgp result:{}", device_map);
+                  return pybind11::cast(device_map);
+              }
+              return pybind11::none();
+          });
 #ifdef VERSION_INFO
     m.attr("__version__") = MACRO_STRINGIFY(VERSION_INFO);
 #else
