@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+
+cppcheck --enable=all \
+--suppress=danglingTempReference \
+-I ccsrc/adapters/include \
+-I ccsrc/cluster/include \
+-I ccsrc/common/include \
+-I ccsrc/cost_graph/include \
+-I ccsrc/DistributedIR/include \
+-I ccsrc/policy/include \
+--std=c++17 \
+--error-exitcode=1 \
+$1

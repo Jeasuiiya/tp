@@ -1,4 +1,4 @@
-from framework.core._graph import DeviceType
+from framework.core.lib._graph import DeviceType
 from .api import parallelize, device_config
 
 __doc__ = "jax api"

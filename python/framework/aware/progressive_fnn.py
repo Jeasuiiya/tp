@@ -7,6 +7,7 @@ except:
     import tensorflow as tf
 import numpy as np
 import networkx as nx
+from framework.tools import log
 
 __doc__ = "Implementation of GraphSAGE-like algorithm for embedding to be used in the RL policy."
 
@@ -210,7 +211,7 @@ class RadioMessenger:
         positions = list(positional_info_generator)
 
         out = tf.reshape(positions, shape=[-1, self.embedding_size * 2])
-        print("Returning P-GNN values with shape", out.shape, datetime.datetime.now())
+        log.debug("Returning P-GNN values with shape %s %s", out.shape, datetime.datetime.now())
         return out
 
     def function(self, adj, bs=1):
@@ -277,18 +278,18 @@ class RadioMessenger:
             anchor_size = int(n / np.exp2(i + self.config_params["pgnn_anchor_exponent"]))
             for _ in range(np.maximum(copy, 1)):
                 self.anchor_sets.append(random.sample(self.nx_nodes, anchor_size))
-        print(
-            "Number of anchor sets: ",
+        log.debug(
+            "Number of anchor sets: %s . Biggest set is: %s",
             len(self.anchor_sets),
-            ". Biggest set is:" + str(int(n / np.exp2(self.config_params["pgnn_anchor_exponent"]))),
+            str(int(n / np.exp2(self.config_params["pgnn_anchor_exponent"]))),
         )
 
     def _aggregate_positional_info(self, nodes, aggregation="max"):
-        print("P-GNN aggregation is", aggregation)
+        log.debug("P-GNN aggregation is %s", aggregation)
         for _, node in enumerate(nodes):
             if self.memo.get(node) is None:
                 self.memo[node] = {}
-            # print(i, n)
+            # log.debug(i, n)
             positional_aggregation = []
             for anchor_set in self.anchor_sets:
                 aggregated = None

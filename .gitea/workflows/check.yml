@@ -26,6 +26,11 @@ jobs:
       continue-on-error: true
       run: |
         TIDY_FLAGS="-quiet -warnings-as-errors=*" ./scripts/lint-cc "ccsrc tests"
+    - name: "[cppcheck] Check for Tensorflow"
+      id: cppcheck
+      continue-on-error: true
+      run: |
+        bash ./scripts/cppcheck-tf ./ccsrc/adapters/tensorflow
     - name: "[black] Check for Python Format"
       id: check-py-format
       continue-on-error: true
@@ -48,19 +53,20 @@ jobs:
         cmake-lint CMakeLists.txt ccsrc/**/CMakeLists.txt cmake/*.cmake
     - name: Check Result
       run: |
-        set -x
         echo "check-cc-format:" ${{ steps.check-cc-format.outcome }}
         echo "check-cc-lint:" ${{ steps.check-cc-lint.outcome }}
         echo "check-py-format:" ${{ steps.check-py-format.outcome }}
         echo "check-py-lint:" ${{ steps.check-py-lint.outcome }}
         echo "check-cmake-format:" ${{ steps.check-cmake-format.outcome }}
         echo "check-cmake-lint:" ${{ steps.check-cmake-lint.outcome }}
+        echo "cppcheck:" ${{ steps.cppcheck.outcome }}
         if [[ ${{ steps.check-cc-format.outcome }} == "failure"
               || ${{ steps.check-cc-lint.outcome }} == "failure"
               || ${{ steps.check-py-format.outcome }} == "failure"
               || ${{ steps.check-py-lint.outcome }} == "failure"
               || ${{ steps.check-cmake-format.outcome }} == "failure"
               || ${{ steps.check-cmake-lint.outcome }} == "failure"
+              || ${{ steps.cppcheck.outcome }} == "failure"
               ]]; then
           echo failure
           exit 1;
@@ -68,3 +74,4 @@ jobs:
           echo success
           exit 0;
         fi
+

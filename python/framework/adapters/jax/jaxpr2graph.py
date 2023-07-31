@@ -7,7 +7,9 @@ import jax.numpy as jnp
 import jax.core as jcore
 from framework.adapters.jax.schedule import GraphPortRef
 from framework.adapters.jax.profile import profile_eqn, profile
-from framework.core._graph import Graph, Node, DataType
+from framework.core.types import Graph, Node
+from framework.core.lib._graph import DataType
+from framework.tools import log
 import ml_dtypes
 import numpy as np
 
@@ -62,7 +64,7 @@ class ConvertContext:
     node_name_record = {}
     id_params = {}
     # record opaque type for node output
-    node_output_type: Dict[Tuple[str, int], Any]
+    node_output_type: Dict[GraphPortRef, Any]
 
     def __init__(self):
         self.var_ids = collections.defaultdict(it.count().__next__, {})
@@ -142,7 +144,7 @@ def process_literal_invars(invars, in_node, context: ConvertContext):
 def _add_abstract_output(context, var, node, index):
     dtype = var.aval.dtype
     if dtype not in SHAPE_ARRAY_DTYPE_TO_DATA_TYPE:
-        context.node_output_type[(node.name, index)] = dtype
+        context.node_output_type[GraphPortRef(node.name, index)] = dtype
         dtype = DataType.Other
     else:
         dtype = SHAPE_ARRAY_DTYPE_TO_DATA_TYPE[dtype]
@@ -152,7 +154,7 @@ def _add_abstract_output(context, var, node, index):
 def _add_abstract_input(context, var, node, index, ref_name, ref_index):
     dtype = var.aval.dtype
     if dtype not in SHAPE_ARRAY_DTYPE_TO_DATA_TYPE:
-        context.node_output_type[(node.name, index)] = dtype
+        context.node_output_type[GraphPortRef(node.name, index)] = dtype
         dtype = DataType.Other
     else:
         dtype = SHAPE_ARRAY_DTYPE_TO_DATA_TYPE[dtype]
@@ -231,15 +233,15 @@ def jaxpr2graph(jaxpr: jcore.ClosedJaxpr):
     """
     context = ConvertContext()
     graph = Graph()
-    # print(jaxpr.jaxpr)
-    # print(jaxpr.jaxpr.constvars)
+    log.trace("jaxpr: %s", jaxpr.jaxpr)
+    log.trace("constvars: %s", jaxpr.jaxpr.constvars)
     input_nodes = process_vars(jaxpr.jaxpr.invars, context, "Input")
     const_nodes = process_vars(jaxpr.jaxpr.constvars, context, "ConstVar")
     node_ref_const = {}
     for value, var in zip(jaxpr.consts, jaxpr.jaxpr.constvars):
         key = (context.var_outputs[var][0].name, context.var_outputs[var][1])
         node_ref_const[key] = value
-    # print(const_nodes)
+    log.trace("const nodes: %s", const_nodes)
     with profile():
         eqn_nodes = process_eqns(jaxpr.jaxpr.eqns, context)
     outputs = process_outputs(jaxpr.jaxpr.outvars, context)
@@ -250,7 +252,9 @@ def jaxpr2graph(jaxpr: jcore.ClosedJaxpr):
     _ = [graph.add_node(n) for n in eqn_nodes]
     _ = [graph.add_return(o) for o in outputs]
 
-    input_vars = list(map(lambda x: (context.var_outputs[x][0].name, context.var_outputs[x][1]), jaxpr.jaxpr.invars))
+    input_vars = list(
+        map(lambda x: GraphPortRef(context.var_outputs[x][0].name, context.var_outputs[x][1]), jaxpr.jaxpr.invars)
+    )
     return GraphWrapper(graph, context.id_params, input_vars, graph.returns, context.node_output_type, node_ref_const)
 
 

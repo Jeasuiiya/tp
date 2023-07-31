@@ -9,319 +9,208 @@
 #include <list>
 #include <map>
 #include <queue>
+#include <unordered_set>
 
 #include "DistributedIR/block.hpp"
 #include "DistributedIR/graph.hpp"
 #include "DistributedIR/node.hpp"
 #include "common/log.h"
+#include "range/v3/iterator/concepts.hpp"
 #include "range/v3/view/filter.hpp"
 #include "range/v3/view/transform.hpp"
 
 namespace framework {
 
-// 深度优先搜索
-bool SearchBeforeNode(std::map<std::string, Nodevalue>& sub_graph_info, std::string& before_node) {
+bool DivideGraphHelper::BfsSearchPrivousGraphOut(const std::string& before_node) {
     std::queue<std::string> before_node_queue;
     before_node_queue.push(before_node);
-    bool flag = false;
     while (!before_node_queue.empty()) {
         std::string the_node = before_node_queue.front();
-        Nodevalue the_node_value = sub_graph_info.find(the_node)->second;
-        if (the_node_value.device_out) {
-            flag = true;
-            break;
+        SplitNodeInfo& the_node_value = node_infos.find(the_node)->second;
+        if (the_node_value.graph_out) {
+            return true;
         }
-        if (the_node_value.inputs_num != 0) {
-            for (auto& before_node : the_node_value.device_in_node) {
+        if (!the_node_value.node->Inputs().empty()) {
+            for (const auto& before_node : the_node_value.same_graph_inputs) {
                 before_node_queue.push(before_node);
             }
         }
         before_node_queue.pop();
     }
-    return flag;
+    return false;
 }
-bool SearchNextNode(std::map<std::string, Nodevalue>& sub_graph_info, std::string& next_node) {
+bool DivideGraphHelper::BfsSearchNextGraphIn(const std::string& next_node) {
     std::queue<std::string> next_node_queue;
     next_node_queue.push(next_node);
-    bool flag = false;
     while (!next_node_queue.empty()) {
         std::string the_node = next_node_queue.front();
-        Nodevalue the_node_value = sub_graph_info.find(the_node)->second;
-        if (the_node_value.device_in) {
-            flag = true;
-            break;
+        SplitNodeInfo& the_node_value = node_infos.find(the_node)->second;
+        if (the_node_value.graph_in) {
+            return true;
         }
-        if (the_node_value.inputs_num != 0) {
-            for (auto& next_node : the_node_value.device_out_node) {
+        if (!the_node_value.node->Outputs().empty()) {
+            for (const auto& next_node : the_node_value.same_graph_outputs) {
                 next_node_queue.push(next_node);
             }
         }
         next_node_queue.pop();
     }
-    return flag;
+    return false;
 }
 
-cpp::result<void, Error> SubgraphSearch(std::map<std::string, Nodevalue>& sub_graph_info,
-                                        std::vector<std::string>& device_in_group,
-                                        std::vector<std::string>& device_out_group) {
-    // 先写一个最简单的dfs 获得完整的图为一个子图
-    // 遍历device_in中的节点，查询同设备中是否有device_out的节点在该节点之前
-    int node_num = device_in_group.size();
-    std::vector<std::pair<std::string, std::string>> cut_edges;  // 为了不重复切分
-    for (int i = 0; i < node_num; i++) {
-        // 同设备中是否切断算子之间的边 1为需要切断 0为保留
-        std::string current_node = device_in_group.at(i);
-        Nodevalue& current_node_value = sub_graph_info.find(current_node)->second;
-        if (current_node_value.device_in)  // 再次确认
-        {
-            // 找寻该算子放在同设备的前驱算子中是否有device_out
-            for (auto& before_node : current_node_value.device_in_node) {
-                bool result = SearchBeforeNode(sub_graph_info, before_node);
-                if (result) {
-                    cut_edges.emplace_back(before_node, current_node);
-                    spdlog::debug("{} -- {} : cut", before_node, current_node);
-                }
-            }
-        } else {
-            return cpp::fail(Error(Kind::Invalid, "The device_in_flag of node is fault"));
-        }
+void DivideGraphHelper::DeriveInputPortConnection(
+    SplitNodeInfo& info, SplitNodeInfo& pre_info,
+    std::map<int, std::vector<std::pair<StrAndInt, StrAndInt>>>* subgraph_op_input) {
+    auto& current_node = info.node;
+    auto& before_node_real = pre_info.node;
+    auto& before_outputs_data = before_node_real->OutputPorts();
+    SPDLOG_TRACE("previous node:{} device:{}", before_node_real->Name(), before_node_real->Device());
+    if (pre_info.subgraph_num == info.subgraph_num) {
+        SPDLOG_ERROR("graph input by self!");
     }
-
-    // 遍历device_out中的节点，查询同设备中是否有device_in的节点在该节点之后
-    int out_node_num = device_out_group.size();
-    for (int i = 0; i < out_node_num; i++) {
-        std::string current_node = device_out_group.at(i);
-        Nodevalue& current_node_value = sub_graph_info.find(current_node)->second;
-        if (current_node_value.device_out) {
-            for (auto& next_node : current_node_value.device_out_node) {
-                bool result = SearchNextNode(sub_graph_info, next_node);
-                if (result) {
-                    cut_edges.emplace_back(current_node, next_node);
-                    spdlog::debug("{} -- {} : cut", current_node, next_node);
-                }
-            }
-
-        } else {
-            return cpp::fail(Error(Kind::Invalid, "The device_out_flag of node is fault"));
-        }
-        // 在current_node的device_in_node和before_node的device_out_node中擦除需要切断的算子，方便组成子图
-        for (auto& cut_edge : cut_edges) {
-            std::string before_node = cut_edge.first;    // 在同设备后继中擦除current_node
-            std::string current_node = cut_edge.second;  // 在同设备前驱中擦除before_node
-            Nodevalue& before_node_value = sub_graph_info.find(before_node)->second;
-            std::vector<std::string>& device_out_node = before_node_value.device_out_node;
-            for (auto iter = device_out_node.begin(); iter != device_out_node.end();) {
-                if (*iter == current_node) {
-                    iter = device_out_node.erase(iter);
-                } else {
-                    iter++;
-                }
-            }
-            Nodevalue& current_node_value = sub_graph_info.find(current_node)->second;
-            std::vector<std::string>& device_in_node = current_node_value.device_in_node;
-            for (auto iter = device_in_node.begin(); iter != device_in_node.end();) {
-                if (*iter == before_node) {
-                    iter = device_in_node.erase(iter);
-                } else {
-                    iter++;
-                }
+    for (auto& input_data : current_node->InputPorts()) {
+        auto iter =
+            std::find_if(before_outputs_data.begin(), before_outputs_data.end(), [&](EdgePort<AbstractTensor>& i) {
+                return before_node_real->OutputName(i.index) == input_data.entity.Ref();
+            });
+        // detect tensor connect
+        if (iter != before_outputs_data.end()) {
+            // 放进map1<input_data, currentnode.name:input_index>
+            //  上个节点的第几个输出  当前节点的第几个输入
+            auto r = current_node->InputName(input_data.index);
+            assert(r.has_value());
+            auto data2data = subgraph_op_input->find(pre_info.subgraph_num);
+            // 放进subgraph_op_input<前序node所在子图序号，tensor connect>
+            if (data2data == subgraph_op_input->end()) {
+                std::vector<std::pair<StrAndInt, StrAndInt>> m;
+                m.emplace_back(input_data.entity.Ref(), r.value());
+                subgraph_op_input->insert({pre_info.subgraph_num, m});
+            } else {
+                data2data->second.emplace_back(input_data.entity.Ref(), r.value());
             }
         }
     }
-    return {};
+}
+void DivideGraphHelper::DeriveNodeInputConnection(
+    SplitNodeInfo& info, std::map<int, std::vector<std::pair<StrAndInt, StrAndInt>>>* subgraph_op_input) {
+    auto& current_node = info.node;
+    auto& same_graph_inputs = info.same_graph_inputs;
+    auto inputs = std::set(current_node->Inputs().begin(), current_node->Inputs().end());
+    std::vector<std::string> inputs_diff;
+    std::set_difference(inputs.begin(), inputs.end(), same_graph_inputs.begin(), same_graph_inputs.end(),
+                        inserter(inputs_diff, inputs_diff.begin()));  // old-->new需要删除的
+    for (auto& before_node : inputs_diff) {
+        auto before_node_value = node_infos.find(before_node)->second;
+        auto& before_node_real = before_node_value.node;
+        SPDLOG_TRACE("previous node:{} device:{}", before_node, before_node_real->Device());
+        if (before_node_value.subgraph_num == info.subgraph_num) {
+            SPDLOG_ERROR("graph input by self!");
+        }
+        DeriveInputPortConnection(info, before_node_value, subgraph_op_input);
+    }
 }
 
-int CreateSubgraphNum(std::map<std::string, Nodevalue>& sub_graph_info,
-                      std::map<int, std::set<NodePtr>>& nodes_to_subgraph) {
-    int subgraph_num = -1;
-    // 给算子子图编号
-    for (auto& iter : sub_graph_info) {
-        std::string current_node_name = iter.first;
-        auto& current_node_value = iter.second;
-        std::queue<std::string> joint_nodes;
-        if (current_node_value.subgraph_num == -1) {
-            joint_nodes.push(current_node_name);
-            subgraph_num++;
-            nodes_to_subgraph.insert({subgraph_num, {}});
-        }
-        while (!joint_nodes.empty()) {
-            std::string the_node = joint_nodes.front();
-            Nodevalue& the_node_value = sub_graph_info.find(the_node)->second;
-            the_node_value.subgraph_num = subgraph_num;
-            nodes_to_subgraph[subgraph_num].insert(the_node_value.node);
-            // nodes_to_subgraph.insert({subgraph_num, the_node_value.node});
-            std::vector<std::string> device_in_node = the_node_value.device_in_node;  // 当前算子还相连的前驱算子
-            std::vector<std::string> device_out_node = the_node_value.device_out_node;  // 当前算子还相连的后继算子
-            for (auto& in_op : device_in_node) {
-                Nodevalue& in_op_value = sub_graph_info.find(in_op)->second;
-                if (in_op_value.subgraph_num == -1) {
-                    joint_nodes.push(in_op);
-                }
+void DivideGraphHelper::DeriveOutPortConnection(
+    SplitNodeInfo& info, SplitNodeInfo& next_info,
+    std::map<int, std::vector<std::pair<StrAndInt, StrAndInt>>>* subgraph_op_output) {
+    auto& current_node = info.node;
+    auto& next_node_real = next_info.node;
+    auto next_inputs_data = next_node_real->InputPorts();
+    for (auto& output_data : current_node->OutputPorts()) {
+        auto iter = std::find_if(next_inputs_data.begin(), next_inputs_data.end(), [&](EdgePort<InputStr>& i) {
+            return current_node->OutputName(output_data.index) == i.entity.Ref();
+        });
+        // detect tensor connect
+        if (iter != next_inputs_data.end()) {
+            // 这个节点的哪个输出 下个节点的第几个输入
+            auto r = next_node_real->InputName(iter->index);
+            assert(r.has_value());
+            auto data2data = subgraph_op_output->find(next_info.subgraph_num);
+            // 放进subgraph_op_input<前序node所在子图序号，tensor connect>
+            if (data2data == subgraph_op_output->end()) {
+                std::vector<std::pair<StrAndInt, StrAndInt>> m;
+                m.emplace_back(iter->entity.Ref(), r.value());
+                subgraph_op_output->insert({next_info.subgraph_num, m});
+            } else {
+                data2data->second.emplace_back(iter->entity.Ref(), r.value());
             }
-            for (auto& out_op : device_out_node) {
-                Nodevalue& out_op_value = sub_graph_info.find(out_op)->second;
-                if (out_op_value.subgraph_num == -1) {
-                    joint_nodes.push(out_op);
-                }
-            }
-            joint_nodes.pop();
         }
     }
-    return subgraph_num + 1;
 }
+void DivideGraphHelper::DeriveNodeOutputConnection(
+    SplitNodeInfo& info, std::map<int, std::vector<std::pair<StrAndInt, StrAndInt>>>* subgraph_op_output) {
+    auto& current_node = info.node;
 
-std::map<int, SubGraphPtr> CreateSubgraph(std::map<std::string, Nodevalue>& sub_graph_info,
-                                          std::map<int, std::set<NodePtr>>& nodes_to_subgraph) {
+    auto& same_graph_outputs = info.same_graph_outputs;
+    auto outputs = std::set(current_node->Outputs().begin(), current_node->Outputs().end());
+    std::vector<std::string> outputs_diff;  // 差集及为前驱后继不同子图的算子
+    std::set_difference(outputs.begin(), outputs.end(), same_graph_outputs.begin(), same_graph_outputs.end(),
+                        inserter(outputs_diff, outputs_diff.begin()));  // old-->new需要删除的
+    for (auto& next_node : outputs_diff) {
+        auto next_node_value = node_infos.find(next_node)->second;
+        auto& next_node_real = next_node_value.node;
+        auto next_inputs_data = next_node_real->InputPorts();
+        SPDLOG_TRACE("next node:{} device:{}", next_node, next_node_real->Device());
+        if (next_node_value.subgraph_num == info.subgraph_num) {
+            SPDLOG_ERROR("graph output by self!");
+        }
+        // find next node's inputs index
+        DeriveOutPortConnection(info, next_node_value, subgraph_op_output);
+    }
+}
+void DivideGraphHelper::DeriveGraphConnection(SubGraphPtr& current_sub_graph, std::map<int, SubGraphPtr>* sub_graphs) {
+    // std::map<int, SubGraphPtr> sub_graphs;  // 所有的子图合集
+    auto& current_nodes = current_sub_graph->Nodes();
+    // map<前驱的子图信息int 对应的节点输入map<string string>>
+    std::map<int, std::vector<std::pair<StrAndInt, StrAndInt>>> subgraph_op_input;  // before_node 前驱节点中第几个输出
+    std::map<int, std::vector<std::pair<StrAndInt, StrAndInt>>> subgraph_op_output;  // next_node 后继节点中第几个输入
+    // 获得前子图，获得后子图
+    // 获得图input   格式：  before节点名:输出index
+    // 获得图output  格式：  current节点名:输入index  input_data排序得出
+
+    for (auto& i : current_nodes)  // 遍历子图中的所有节点
+    {
+        auto& current_node = i;
+        SplitNodeInfo& current_node_value = node_infos.find(current_node->Name())->second;
+        DeriveNodeInputConnection(current_node_value, &subgraph_op_input);
+        DeriveNodeOutputConnection(current_node_value, &subgraph_op_output);
+    }
+    for (auto& before : subgraph_op_input) {
+        int before_subgraph_num = before.first;
+        auto& op_op = before.second;
+        // auto& before_subgraph = sub_graphs->find(before_subgraph_num)->second;
+        auto& before_subgraph = (*sub_graphs)[before_subgraph_num];
+        current_sub_graph->AddInputGraph(before_subgraph);
+        current_sub_graph->AddInput(op_op);
+    }
+
+    for (auto& next : subgraph_op_output) {
+        int next_subgraph_num = next.first;
+        auto& op_op = next.second;
+        // auto& next_subgraph = sub_graphs->find(next_subgraph_num)->second;
+        auto& next_subgraph = (*sub_graphs)[next_subgraph_num];
+        current_sub_graph->AddOutputGraph(next_subgraph);
+        current_sub_graph->AddOutput(op_op);
+    }
+}
+std::map<int, SubGraphPtr> DivideGraphHelper::Build() {
     std::map<int, SubGraphPtr> sub_graphs;  // 所有的子图合集
     // 将算子放进对应的子图
-    spdlog::debug("subgraph size: {} {}", nodes_to_subgraph.size());
-    for (auto& index_nodes : nodes_to_subgraph) {
-        spdlog::debug("subgraph {} node size: {}", index_nodes.first, index_nodes.second.size());
+    SPDLOG_DEBUG("subgraph size: {}", graphs.size());
+    for (auto& index_nodes : graphs) {
+        SPDLOG_TRACE("subgraph {} node size: {}", index_nodes.first, index_nodes.second.size());
 
         SubGraph sub_graph;
-        // std::map<std::string, NodeBase&> node_map;
-        // auto node_to_place = nodes_to_subgraph.find(i);
         for (const auto& i : index_nodes.second) {
-            spdlog::debug("subgraph {} add: {} {}", index_nodes.first, i->Name(), i);
             sub_graph.AddNode(i);
-            // nodes_to_subgraph.erase(node_to_place);
-            // node_to_place = nodes_to_subgraph.find(i);
         }
-        // while (node_to_place != nodes_to_subgraph.end()) {
-        //     std::cout << "subgraph" << i << "add:" << node_to_place->second->Name() << std::endl;
-        //     sub_graph.AddNode(node_to_place->second);
-        //     nodes_to_subgraph.erase(node_to_place);
-        //     node_to_place = nodes_to_subgraph.find(i);
-        // }
         sub_graphs.insert({index_nodes.first, std::make_shared<SubGraph>(std::move(sub_graph))});
-    }
-    if (nodes_to_subgraph.size() != sub_graphs.size()) {
-        spdlog::debug("subgraph_num is {}", nodes_to_subgraph.size());
-        spdlog::debug("subgraph's size is {}", sub_graphs.size());
-        spdlog::debug("error:they are different!!!");
     }
 
     // //获取子图连接信息
     for (auto& iter : sub_graphs) {
         auto& current_sub_graph = iter.second;
-        // auto current_sub_graph_num = iter.first;
-        auto current_nodes = current_sub_graph->Nodes();
-        // map<前驱的子图信息int 对应的节点输入map<string string>>
-        std::map<int, std::vector<std::pair<StrAndInt, StrAndInt>>>
-            subgraph_op_input;  // before_node 前驱节点中第几个输出
-        std::map<int, std::vector<std::pair<StrAndInt, StrAndInt>>>
-            subgraph_op_output;  // next_node 后继节点中第几个输入
-        // 获得前子图，获得后子图
-        // 获得图input   格式：  before节点名:输出index
-        // 获得图output  格式：  current节点名:输入index  input_data排序得出
-        for (auto& i : current_nodes)  // 遍历子图中的所有节点
-        {
-            auto& current_node = i;
-            Nodevalue& current_node_value = sub_graph_info.find(current_node->Name())->second;
-            auto device_in_node = current_node_value.device_in_node;
-            auto device_out_node = current_node_value.device_out_node;
-            auto inputs = current_node->Inputs();
-            auto outputs = current_node->Outputs();
-            std::vector<std::string> inputs_diff;
-            std::vector<std::string> outputs_diff;  // 差集及为前驱后继不同子图的算子
-            std::set_difference(inputs.begin(), inputs.end(), device_in_node.begin(), device_in_node.end(),
-                                inserter(inputs_diff, inputs_diff.begin()),
-                                [](auto& a, auto& b) { return a != b; });  // old-->new需要删除的
-
-            std::set_difference(outputs.begin(), outputs.end(), device_out_node.begin(), device_out_node.end(),
-                                inserter(outputs_diff, outputs_diff.begin()),
-                                [](auto& a, auto& b) { return a != b; });  // old-->new需要删除的
-            spdlog::debug(
-                "current node: {} device_in_node: {} inputs:{} inputs_diff: {} device_out_node: {} outputs: {} "
-                "outputs_diff:{} subgraph_num: {}",
-                current_node->Name(), device_in_node, inputs, inputs_diff, device_out_node, outputs, outputs_diff,
-                current_node_value.subgraph_num);
-
-            if (!inputs_diff.empty()) {
-                // 该节点是图边缘节点
-                // 找寻非同设备前驱的节点，前驱的output_data和该节点的input_data对上的部分放进第一个string
-                std::multimap<std::string, std::string> data2data;
-                auto& current_inputs_data = current_node->InputPorts();
-                for (auto& input_data : current_inputs_data) {
-                    for (auto& before_node : inputs_diff) {
-                        auto before_node_value = sub_graph_info.find(before_node)->second;
-                        auto& before_node_real = before_node_value.node;
-                        auto& before_outputs_data = before_node_real->OutputPorts();
-                        auto iter = std::find_if(
-                            before_outputs_data.begin(), before_outputs_data.end(), [&](EdgePort<AbstractTensor>& i) {
-                                return before_node_real->OutputName(i.index) == input_data.entity.Ref();
-                            });
-                        // detect tensor connect
-                        if (iter != before_outputs_data.end()) {
-                            // 放进map1<input_data, currentnode.name:input_index>
-                            //  上个节点的第几个输出  当前节点的第几个输入
-                            auto r = current_node->InputName(input_data.index);
-                            assert(r.has_value());
-                            // data2data.insert({input_data.entity.Ref(), r.value()});
-                            auto data2data = subgraph_op_input.find(before_node_value.subgraph_num);
-                            // 放进subgraph_op_input<前序node所在子图序号，tensor connect>
-                            if (data2data == subgraph_op_input.end()) {
-                                std::vector<std::pair<StrAndInt, StrAndInt>> m;
-                                m.emplace_back(input_data.entity.Ref(), r.value());
-                                subgraph_op_input.insert({before_node_value.subgraph_num, m});
-                            } else {
-                                data2data->second.emplace_back(input_data.entity.Ref(), r.value());
-                            }
-                        }
-                    }
-                }
-                // 放进subgraph_op_input<当前node所在map的序号，map1>
-                // subgraph_op_input.insert({current_node_value.subgraph_num, data2data});
-            }
-            if (!outputs_diff.empty()) {
-                std::multimap<std::string, std::string> data2data;
-                auto& current_outputs_data = current_node->OutputPorts();
-                for (auto& output_data : current_outputs_data) {
-                    for (auto& next_node : outputs_diff) {
-                        auto next_node_value = sub_graph_info.find(next_node)->second;
-                        auto& next_node_real = next_node_value.node;
-                        auto next_inputs_data = next_node_real->InputPorts();
-                        auto iter =
-                            std::find_if(next_inputs_data.begin(), next_inputs_data.end(), [&](EdgePort<InputStr>& i) {
-                                return current_node->OutputName(output_data.index) == i.entity.Ref();
-                            });
-                        // input_index = std::distance(next_inputs_data.begin(), iter);
-                        // detect tensor connect
-                        if (iter != next_inputs_data.end()) {
-                            // 这个节点的哪个输出 下个节点的第几个输入
-                            auto r = next_node_real->InputName(iter->index);
-                            assert(r.has_value());
-                            // data2data.insert({iter->entity.Ref(), r.value()});
-                            auto data2data = subgraph_op_output.find(next_node_value.subgraph_num);
-                            // 放进subgraph_op_input<前序node所在子图序号，tensor connect>
-                            if (data2data == subgraph_op_output.end()) {
-                                std::vector<std::pair<StrAndInt, StrAndInt>> m;
-                                m.emplace_back(iter->entity.Ref(), r.value());
-                                subgraph_op_output.insert({next_node_value.subgraph_num, m});
-                            } else {
-                                data2data->second.emplace_back(iter->entity.Ref(), r.value());
-                            }
-                        }
-                    }
-                }
-                // subgraph_op_output.insert({current_node_value.subgraph_num, data2data});
-            }
-        }
-        for (auto& before : subgraph_op_input) {
-            int before_subgraph_num = before.first;
-            auto& op_op = before.second;
-            auto& before_subgraph = sub_graphs.find(before_subgraph_num)->second;
-            current_sub_graph->AddInputGraph(before_subgraph);
-            current_sub_graph->AddInput(op_op);
-        }
-
-        for (auto& next : subgraph_op_output) {
-            int next_subgraph_num = next.first;
-            auto& op_op = next.second;
-            auto& next_subgraph = sub_graphs.find(next_subgraph_num)->second;
-            current_sub_graph->AddOutputGraph(next_subgraph);
-            current_sub_graph->AddOutput(op_op);
-        }
+        DeriveGraphConnection(current_sub_graph, &sub_graphs);
     }
     // 输出子图信息
     for (auto& iter : sub_graphs) {
@@ -338,7 +227,6 @@ std::map<int, SubGraphPtr> CreateSubgraph(std::map<std::string, Nodevalue>& sub_
         }
         ss << std::endl;
 
-        // std::cout<<"The number of output subgraphs is :"<<current_subgraph.output_graphs.size()<<std::cout;
         ss << "before_op_output--current_subgraph_input are :" << std::endl;
         for (auto& op_op : current_subgraph->GetInputs()) {
             for (auto& iter : op_op) {
@@ -353,194 +241,449 @@ std::map<int, SubGraphPtr> CreateSubgraph(std::map<std::string, Nodevalue>& sub_
             }
             ss << std::endl;
         }
-        spdlog::debug(ss.str());
+        SPDLOG_TRACE(ss.str());
     }
     return sub_graphs;
 }
 
-std::set<NodePtr> CheckCircleAndSplit(std::map<std::string, Nodevalue>& sub_graph_info, std::set<NodePtr>& nodes) {
-    spdlog::debug("====================Start Check Circle===========================");
-    // std::set<NodePtr> nodes_set = std::set<NodePtr>(nodes.begin(), nodes.end());
-    std::set<NodePtr> ret;
-    auto in_filter = [&](auto& n) {
-        return sub_graph_info[n->Name()].device_in;
+std::vector<NodePtr> DivideGraphHelper::TopoForwardGraphOut(std::set<NodePtr>& nodes,
+                                                            std::vector<NodePtr>& graph_in_nodes,
+                                                            std::set<NodePtr>& graph_out_set) {
+    std::queue<std::pair<NodePtr, int>> q;
+    std::unordered_set<NodePtr> visited;
+    auto push_queue = [&](auto& q, std::pair<NodePtr, int> pair) {
+        if (!visited.count(pair.first)) {
+            q.push(pair);
+            visited.insert(pair.first);
+        }
     };
-    auto out_filter = [&](auto& n) {
-        return sub_graph_info[n->Name()].device_out;
-    };
-    auto device_in_nodes = nodes | ranges::views::filter(in_filter) | ranges::to_vector;
-    auto device_out_nodes = nodes | ranges::views::filter(out_filter) | ranges::to_vector;
-    auto device_out_nodes_size = device_out_nodes.size();
-    std::queue<NodePtr> q;
-    for (auto& i : device_in_nodes) {
-        q.push(i);
+    for (auto& i : graph_in_nodes) {
+        push_queue(q, {i, 0});
     }
-    // std::vector<NodePtr> device_in_successor;
-    std::map<NodePtr, bool> visited;
+
+    // (node , level from start)
+    std::vector<std::pair<NodePtr, int>> ret_level;
     while (!q.empty()) {
-        auto& node = q.front();
-        visited[node] = true;
-        ret.insert(node);
-        device_out_nodes =
-            device_out_nodes | ranges::views::remove_if([&](auto& i) { return i == node; }) | ranges::to_vector;
+        auto& pair = q.front();
+        auto& node = pair.first;
+        q.pop();
+        if (graph_out_set.count(node)) {
+            ret_level.push_back(pair);
+        }
+
         auto successor = node->Outputs();
         for (auto& i : successor) {
-            auto n = sub_graph_info[i].node;
-            auto it = visited.find(n);
-            auto same_graph = nodes.find(n) != nodes.end();
-            // auto same_graph = true;
-            if (same_graph && (it == visited.end() || !it->second)) {
-                q.push(n);
+            auto n = node_infos[i].node;
+            if (nodes.count(n)) {
+                push_queue(q, {n, pair.second + 1});
             }
         }
-        q.pop();
     }
-    // exists device_out node which is not device_in's successor
-    // may cause cycle
-    // split these node to another graph
-    if (!device_out_nodes.empty() && device_out_nodes_size > 0) {
-        spdlog::debug("DetectCycle: {}", device_out_nodes);
-        spdlog::debug("nodes size: {}", ret.size());
-        spdlog::debug("====================End Check Circle===========================");
-        return ret;
+    // sort by level
+    ranges::sort(ret_level, [](auto& a, auto& b) { return a.second < b.second; });
+    SPDLOG_TRACE("TopoForwardGraphOut . {}", ret_level);
+
+    auto ret = ret_level | ranges::views::transform([](auto& a) { return a.first; }) | ranges::to_vector;
+    if (ret_level.size() != graph_out_set.size()) {
+        SPDLOG_ERROR("device out num error. real: {} found: {}", graph_out_set.size(), ret_level.size());
     }
-    spdlog::debug("====================End Check Circle===========================");
-    return {};
+    return ret;
 }
 
-void FixCircle(std::map<std::string, Nodevalue>& sub_graph_info, std::map<int, std::set<NodePtr>>& nodes_to_subgraph) {
-    std::vector<std::set<NodePtr>> splited_graph;
-    for (auto& i : nodes_to_subgraph) {
-        // auto subgraph_order = i.first;
-        auto ret = CheckCircleAndSplit(sub_graph_info, i.second);
-        for (const auto& j : ret) {
-            i.second.erase(j);
+void DivideGraphHelper::SplitTopoOrder(NodePtr& node, const std::set<NodePtr>& nodes,
+                                       const std::set<NodePtr>& graph_out_set,
+                                       const std::function<void(std::queue<NodePtr>&, NodePtr&)>& push_queue,
+                                       const std::function<void(std::set<NodePtr>&)>& push_ret) {
+    std::queue<NodePtr> q;
+    std::set<NodePtr> split_set;
+    push_queue(q, node);
+
+    while (!q.empty()) {
+        auto& node = q.front();
+        q.pop();
+        split_set.insert(node);
+        // encount first graph out node
+        if (graph_out_set.count(node)) {
+            push_ret(split_set);
+            split_set.clear();
         }
-        if (!ret.empty()) {
-            splited_graph.push_back(ret);
+        auto previous = node->Inputs();
+        for (auto& i : previous) {
+            auto n = node_infos[i].node;
+            if (nodes.count(n)) {
+                push_queue(q, n);
+            }
         }
-        // i.second.erase()
-        // if (!ret.empty()) {
-        //     i.second = i.second | ranges::views::remove_if([&](auto& i) { return ranges::find(ret, i) != ret.end();
-        //     })
-        //                | ranges::to_vector;
-        // }
     }
-    for (auto& i : splited_graph) {
-        std::set<NodePtr> split_node_set = std::set<NodePtr>(i.begin(), i.end());
-        auto size = nodes_to_subgraph.size();
-        nodes_to_subgraph[size] = i;
-        for (const auto& node : nodes_to_subgraph[size]) {
-            auto& node_value = sub_graph_info[node->Name()];
-            node_value.subgraph_num = size;
-            // previous node not in split graph
-            spdlog::debug(
-                "PROCESS SPLITED NODE -- name:{} device_in:{} device_in_node:{} device_out:{} device_out_node:{} {}",
-                node->Name(), node_value.device_in, node_value.device_in_node, node_value.device_out,
-                node_value.device_out_node, node);
-            for (auto& input : node->Inputs()) {
-                auto& previous_value = sub_graph_info[input];
-                if (split_node_set.find(sub_graph_info[input].node) == split_node_set.end()) {
-                    spdlog::debug("PROCESS SPLITED NODE -- FIND DIFFERENT GRAPH node:{}", input);
-                    node_value.device_in = true;
-                    node_value.device_in_node = node_value.device_in_node
-                                                | ranges::views::remove_if([&](auto& i) { return i == input; })
-                                                | ranges::to_vector;
-                    previous_value.device_out = true;
-                    previous_value.device_out_node =
-                        previous_value.device_out_node
-                        | ranges::views::remove_if([&](auto& i) { return i == node->Name(); }) | ranges::to_vector;
-                } else {
-                    node_value.device_in_node.push_back(input);
-                    previous_value.device_out_node.push_back(node->Name());
+    push_ret(split_set);
+}
+std::vector<std::set<NodePtr>> DivideGraphHelper::SplitInternal(std::set<NodePtr>& nodes) {
+    std::vector<std::set<NodePtr>> ret;
+    auto out_filter = [&](auto& n) {
+        return node_infos[n->Name()].graph_out;
+    };
+    auto in_filter = [&](auto& n) {
+        return node_infos[n->Name()].graph_in || n->InputPorts().empty();
+    };
+    auto push_ret = [&](auto& r) {
+        if (!r.empty()) {
+            ret.push_back(r);
+        }
+    };
+    std::set<NodePtr> visited;
+    auto push_queue = [&](auto& q, auto& node) {
+        if (!visited.count(node)) {
+            q.push(node);
+            visited.insert(node);
+        }
+    };
+
+    auto graph_in_nodes = nodes | ranges::views::filter(in_filter) | ranges::to_vector;
+    auto graph_out_nodes = nodes | ranges::views::filter(out_filter) | ranges::to_vector;
+    std::set<NodePtr> graph_out_set(graph_out_nodes.begin(), graph_out_nodes.end());
+    auto graph_out_topo_order = TopoForwardGraphOut(nodes, graph_in_nodes, graph_out_set);
+    SPDLOG_TRACE("split: graph out nodes {}", graph_out_topo_order);
+
+    for (auto& out_node : graph_out_topo_order) {
+        SplitTopoOrder(out_node, nodes, graph_out_set, push_queue, push_ret);
+    }
+    std::set<NodePtr> rest;
+    std::set_difference(nodes.begin(), nodes.end(), visited.begin(), visited.end(), std::inserter(rest, rest.begin()));
+    push_ret(rest);
+
+    auto size = std::accumulate(ret.begin(), ret.end(), 0U, [](auto& a, auto& b) { return a + b.size(); });
+    if (size != nodes.size()) {
+        std::vector<std::string> not_current_graph;
+        for (auto& i : ret) {
+            for (const auto& n : i) {
+                if (nodes.count(n) == 0) {
+                    not_current_graph.push_back(n->Name());
                 }
             }
-            // // successor node not in split grpah
-            // for (auto& output : node->Outputs()) {
-            //     if (split_node_set.find(sub_graph_info[output].node) == split_node_set.end()) {
-            //         node_value.device_out = true;
-            //         node_value.device_out_node = node_value.device_out_node
-            //                                      | ranges::views::remove_if([&](auto& i) { return i == output; })
-            //                                      | ranges::to_vector;
-            //         auto& next_value = sub_graph_info[output];
-            //         next_value.device_in = true;
-            //         next_value.device_in_node = next_value.device_in_node
-            //                                     | ranges::views::remove_if([&](auto& i) { return i == node->Name();
-            //                                     }) | ranges::to_vector;
-            //     }
-            // }
+            not_current_graph.emplace_back("|");
         }
-        spdlog::debug("add graph: id:{} node number {} | nodes: {}", size, i.size(), i);
+        SPDLOG_ERROR("split graph: topo error! origin:{}, visited: {}, result: {}, not current graph: {}", nodes.size(),
+                     visited.size(), size, not_current_graph);
     }
+    SPDLOG_TRACE("finish split graph. origin:{}, visited: {}, nodes to {} graphs", nodes.size(), visited.size(),
+                 ret.size());
+    return ret;
 }
 
-cpp::result<std::map<int, SubGraphPtr>, Error> DivideGraph(Graph graph) {
-    // map获取节点信息 device_in、device_out、前驱后继的节点以及节点数量 当前节点放置的位置
-    std::map<std::string, Nodevalue> sub_graph_info;
-    int node_num = graph.NodeMap().size();
-    spdlog::debug("node_num: {}", node_num);
-    std::vector<std::string> inputs;
-    std::vector<std::string> outputs;
-    std::vector<std::string> device_in_group;   // 记录所有标记device_in的算子，方便后期遍历
-    std::vector<std::string> device_out_group;  // 记录所有标记device_out的算子，方便后期遍历
-    for (int i = 0; i < node_num; i++) {
-        auto current_node = graph.GetNode(i).value();
-        Nodevalue current_node_value;
-        current_node_value.node = current_node;
-        inputs = current_node->Inputs();
-        int inputs_num = inputs.size();
-        outputs = current_node->Outputs();
-        int outputs_num = outputs.size();
-        current_node_value.inputs_num = inputs_num;
-        current_node_value.outputs_num = outputs_num;
-        // std::cout<<"inputs_num"<<inputs_num<<"outputs_num"<<outputs_num<<std::endl;
+void DivideGraphHelper::UpdateInfo(std::set<NodePtr>& graph, int graph_num, const std::string& device) {
+    for (const auto& node : graph) {
+        // SPDLOG_TRACE("merge internal: target node: {}", nodes->Name());
+        node->Device(device);
+        auto& info = node_infos[node->Name()];
+        info.subgraph_num = graph_num;
 
-        std::string device = current_node->Device();
-        // device_in
-        for (int j = 0; j < inputs_num; j++) {
-            // std::cout<<"device_in"<<std::endl;
-            std::string input = inputs.at(j);
-            auto& before_node = graph.GetNode(input).value();
-
-            // std::cout<<j<<" before_node_name:"<<before_node.Name()<<std::endl;
-            std::string before_device = before_node->Device();
-            if (device == before_device)  // 同设备的算子记录一下
-            {
-                current_node_value.device_in_node.push_back(input);
+        bool in_other = false;
+        info.same_graph_inputs.clear();
+        for (auto& input_name : node->Inputs()) {
+            auto& input_node = node_infos[input_name].node;
+            if (graph.count((input_node))) {
+                info.same_graph_inputs.insert(input_name);
             } else {
-                current_node_value.device_in = true;
-                device_out_group.push_back(input);
-                spdlog::debug("device_out: {}", input);
+                in_other = true;
             }
         }
-        // device_out
-        for (int j = 0; j < outputs_num; j++) {
-            // std::cout<<"device_out"<<std::endl;
-            std::string output = outputs.at(j);
-            auto& next_node = graph.GetNode(output).value();
-            std::string next_device = next_node->Device();
-            if (device == next_device) {
-                current_node_value.device_out_node.push_back(output);
+        info.graph_in = in_other;
+
+        bool out_other = false;
+        info.same_graph_outputs.clear();
+        for (auto& output_name : node->Outputs()) {
+            auto& output_node = node_infos[output_name].node;
+            if (graph.count((output_node))) {
+                info.same_graph_outputs.insert(output_name);
             } else {
-                current_node_value.device_out = true;
-                device_in_group.push_back(output);
-                spdlog::debug("device_in: {}", output);
+                out_other = true;
             }
         }
-        sub_graph_info.insert({current_node->Name(), current_node_value});
-        inputs.clear();
-        outputs.clear();
+        info.graph_out = out_other;
     }
+}
+void DivideGraphHelper::MergeInternal(std::set<NodePtr>& source, int target_num, std::set<NodePtr>* target) {
+    if (source.empty() && target->empty()) {
+        return;
+    }
+    std::string device;
+    if (!target->empty()) {
+        device = (*target->begin())->Device();
+    } else {
+        device = (*source.begin())->Device();
+    }
+    target->merge(source);
+    UpdateInfo(*target, target_num, device);
+}
+void DivideGraphHelper::Merge() {
+    auto size = graphs.size();
+    SPDLOG_DEBUG("merge start: graphs: {}", size);
+    auto simple_graph = BuildSimpleGraph();
+    // [source -> target]
+    std::vector<std::pair<int, int>> merge_schedules;
+    for (auto& it : simple_graph.second) {
+        auto current_outdegree = it.second.size();
+        auto current_graph_size = graphs[it.first].size();
+        // outdegree is 1 and nodes < 100 will merge
+        if (current_outdegree == 1 && current_graph_size < merge_threshold) {
+            auto target = *it.second.begin();
+            auto target_out_degree = simple_graph.second[target].size();
+            auto current_in_degree_empty = simple_graph.first[it.first].empty();
+            // outdegree of target is not 1 to prevent recursive merge
+            if ((target_out_degree != 1 || current_in_degree_empty) /*&& it.first != target*/) {
+                merge_schedules.emplace_back(it.first, target);
+            }
+        }
+    }
+    for (auto& schedule : merge_schedules) {
+        SPDLOG_TRACE("merge internal start: {} -> {}", schedule.first, schedule.second);
+        MergeInternal(graphs[schedule.first], schedule.second, &graphs[schedule.second]);
+        SPDLOG_TRACE("merge internal finish: {} -> {}", schedule.first, schedule.second);
+        graphs.erase(schedule.first);
+    }
+    SPDLOG_DEBUG("merge finish: graphs: {} -> {}", size, graphs.size());
+}
 
-    // 深度优先搜索切断同设备不满足条件的边
-    TRY(SubgraphSearch(sub_graph_info, device_in_group, device_out_group));
+void DivideGraphHelper::MergeManyTimes() {
+    auto size = graphs.size();
+    while (true) {
+        Merge();
+        if (graphs.size() == size) {
+            break;
+        }
+        size = graphs.size();
+    }
+}
+std::vector<std::vector<int>> DivideGraphHelper::AllCircle() {
+    auto simple_graph = BuildSimpleGraph();
+    std::vector<std::vector<int>> circles;
+    for (size_t i = 0; i < graphs.size(); i++) {
+        std::vector<int> current;
+        std::set<int> visited;
+        DfsForCircle(simple_graph, i, i, &circles, &current, &visited);
+        SPDLOG_TRACE("found circle for graph simple id: {}", i);
+    }
+    return circles;
+}
+void DivideGraphHelper::Split() {
+    auto origin_graph_size = graphs.size();
+    auto origin_node_size =
+        std::accumulate(graphs.begin(), graphs.end(), 0, [](auto& a, auto& b) { return a + b.second.size(); });
+    SPDLOG_DEBUG("fix circle start {} graphs, {} nodes", origin_graph_size, origin_node_size);
 
-    // 形成子图编号
-    // std::multimap<int, NodePtr> nodes_to_subgraph;
-    std::map<int, std::set<NodePtr>> nodes_to_subgraph;
-    CreateSubgraphNum(sub_graph_info, nodes_to_subgraph);
-    FixCircle(sub_graph_info, nodes_to_subgraph);
-    std::map<int, SubGraphPtr> sub_graph = CreateSubgraph(sub_graph_info, nodes_to_subgraph);
+    // detect circles
+    std::vector<std::vector<int>> circles = AllCircle();
+    std::set<int> circle_graphs;
+    std::map<int, std::set<NodePtr>> split_subgraphs;
+    for (auto& v : circles) {
+        for (auto& i : v) {
+            circle_graphs.insert(i);
+            split_subgraphs[i] = graphs[i];
+        }
+    }
+    // graph in circle is need for spliting, remove
+    for (const auto& i : circle_graphs) {
+        graphs.erase(i);
+    }
+    SPDLOG_DEBUG("circle ids: {}", circles);
+    SPDLOG_DEBUG("circle_graphs: {}", circle_graphs);
+
+    std::vector<std::set<NodePtr>> split_graphs;
+    for (auto& i : split_subgraphs) {
+        auto& nodes = i.second;
+        auto s = SplitInternal(nodes);
+        for (auto& g : s) {
+            split_graphs.push_back(g);
+        }
+    }
+    // process splited graphs (origin in circle), assign new simple graph id and update info
+    std::map<int, std::set<NodePtr>> ret;
+    for (auto& g : split_graphs) {
+        auto size = ret.size();
+        ret[size] = g;
+        if (!g.empty()) {
+            UpdateInfo(g, size, (*g.begin())->Device());
+        }
+        SPDLOG_TRACE("add graph: id:{} node number {} | nodes: {}", size, g.size(), g);
+    }
+    // process rest graphs (not in circle), assign new simple graph id
+    for (auto& g : graphs) {
+        auto size = ret.size();
+        ret[size] = g.second;
+        for (const auto& node : ret[size]) {
+            auto& node_value = node_infos[node->Name()];
+            node_value.subgraph_num = size;
+        }
+    }
+    SPDLOG_DEBUG("fix circle finish. graph: {} -> {}, node: {} -> {}", origin_graph_size, ret.size(), origin_node_size,
+                 std::accumulate(ret.begin(), ret.end(), 0, [](auto& a, auto& b) { return a + b.second.size(); }));
+    graphs.swap(ret);
+}
+
+std::pair<SimpleGraph, SimpleGraph> DivideGraphHelper::BuildSimpleGraph() {
+    SimpleGraph indegree;
+    SimpleGraph outdegree;
+    for (auto& info_kv : node_infos) {
+        // auto gid = info_kv.first;
+        auto& info = info_kv.second;
+        auto gid = info.subgraph_num;
+        auto& node = info.node;
+
+        auto in_it = indegree.find(gid);
+        auto input_ids = node->Inputs() | ranges::views::transform([&](auto& s) { return node_infos[s].subgraph_num; })
+                         | ranges::to_vector;
+        auto in_set = std::set(input_ids.begin(), input_ids.end());
+        in_set.erase(gid);
+        if (in_it == indegree.end()) {
+            indegree.insert({gid, in_set});
+        } else {
+            indegree[gid].merge(in_set);
+        }
+        auto out_it = outdegree.find(gid);
+
+        auto output_ids = node->Outputs()
+                          | ranges::views::transform([&](auto& s) { return node_infos[s].subgraph_num; })
+                          | ranges::to_vector;
+        auto out_set = std::set(output_ids.begin(), output_ids.end());
+        out_set.erase(gid);
+        if (out_it == outdegree.end()) {
+            outdegree.insert({gid, out_set});
+        } else {
+            outdegree[gid].merge(out_set);
+        }
+    }
+    return {indegree, outdegree};
+}
+void DivideGraphHelper::SetupNodeInput(const NodePtr& node, const NodePtr& pre_node, SplitNodeInfo* info) {
+    if (node->Device() == pre_node->Device())  // 同设备的算子记录一下
+    {
+        SPDLOG_TRACE("same device input: {} {}", node->Name(), pre_node->Name());
+        info->same_graph_inputs.insert(pre_node->Name());
+    } else {
+        info->graph_in = true;
+        SPDLOG_TRACE("graph out: {}", pre_node->Name());
+    }
+}
+void DivideGraphHelper::SetupNodeOutput(const NodePtr& node, const NodePtr& next_node, SplitNodeInfo* info) {
+    if (node->Device() == next_node->Device()) {
+        SPDLOG_TRACE("same device output: {} {}", node->Name(), next_node->Name());
+        info->same_graph_outputs.insert(next_node->Name());
+    } else {
+        info->graph_out = true;
+        SPDLOG_TRACE("graph in: {}", next_node->Name());
+    }
+}
+void DivideGraphHelper::SetupNode(Graph& graph, const NodePtr& node) {
+    SplitNodeInfo info;
+    info.node = node;
+
+    std::string device = node->Device();
+    for (auto& input : node->Inputs()) {
+        auto& before_node = graph.GetNode(input).value();
+        SetupNodeInput(node, before_node, &info);
+    }
+    for (auto& output : node->Outputs()) {
+        auto& next_node = graph.GetNode(output).value();
+        SetupNodeOutput(node, next_node, &info);
+    }
+    node_infos.insert({node->Name(), info});
+}
+void DivideGraphHelper::Setup(Graph& graph) {
+    int node_num = graph.NodeMap().size();
+    SPDLOG_DEBUG("node_num: {}", node_num);
+    for (auto& node : graph.Nodes()) {
+        SetupNode(graph, node);
+    }
+    AssignGraph();
+}
+
+void DivideGraphHelper::AssignGraph() {
+    int subgraph_num = -1;
+    // 给算子子图编号
+    for (auto& iter : node_infos) {
+        std::string current_node_name = iter.first;
+        auto& current_node_value = iter.second;
+        std::queue<std::string> joint_nodes;
+        if (current_node_value.subgraph_num == -1) {
+            joint_nodes.push(current_node_name);
+            subgraph_num++;
+            graphs.insert({subgraph_num, {}});
+        }
+        while (!joint_nodes.empty()) {
+            std::string the_node = joint_nodes.front();
+            SplitNodeInfo& the_node_value = node_infos.find(the_node)->second;
+            the_node_value.subgraph_num = subgraph_num;
+            graphs[subgraph_num].insert(the_node_value.node);
+            auto& same_graph_inputs = the_node_value.same_graph_inputs;    // 当前算子还相连的前驱算子
+            auto& same_graph_outputs = the_node_value.same_graph_outputs;  // 当前算子还相连的后继算子
+            for (const auto& in_op : same_graph_inputs) {
+                SplitNodeInfo& in_op_value = node_infos.find(in_op)->second;
+                if (in_op_value.subgraph_num == -1) {
+                    joint_nodes.push(in_op);
+                }
+            }
+            for (const auto& out_op : same_graph_outputs) {
+                SplitNodeInfo& out_op_value = node_infos.find(out_op)->second;
+                if (out_op_value.subgraph_num == -1) {
+                    joint_nodes.push(out_op);
+                }
+            }
+            joint_nodes.pop();
+        }
+    }
+    for (auto& it : graphs) {
+        std::vector<std::string> out;
+        std::for_each(it.second.begin(), it.second.end(), [&](auto& i) { out.push_back(i->Name()); });
+        SPDLOG_TRACE("init graph {}. nodes: {}", it.first, out);
+    }
+}
+void DivideGraphHelper::FixCircle() {
+    auto size = graphs.size();
+    while (true) {
+        if (merge_enable) {
+            MergeManyTimes();
+        }
+        Split();
+        if (size == graphs.size()) {
+            break;
+        }
+        size = graphs.size();
+    }
+    std::vector<int> zeros;
+    for (auto& it : graphs) {
+        if (it.second.empty()) {
+            zeros.push_back(it.first);
+        }
+    }
+    for (auto& i : zeros) {
+        graphs.erase(i);
+    }
+}
+// todo: no recursive dfs
+// NOLINTBEGIN
+void DfsForCircle(std::pair<SimpleGraph, SimpleGraph>& simple_graph, int start, int target,
+                  std::vector<std::vector<int>>* record, std::vector<int>* current, std::set<int>* visited) {
+    SimpleGraph& indegree = simple_graph.first;
+    current->push_back(start);
+    visited->insert(start);
+    for (const auto& next : indegree[start]) {
+        if (next == target) {
+            SPDLOG_TRACE("DfsForCircle found circle {} -> {} -> {}, current: {}", next, start, target, (*current));
+            record->push_back(*current);
+        } else if (!visited->count(next)) {
+            DfsForCircle(simple_graph, next, target, record, current, visited);
+        }
+    }
+    current->pop_back();
+}
+// NOLINTEND
+//
+cpp::result<std::map<int, SubGraphPtr>, Error> DivideGraph(Graph& graph) {
+    DivideGraphHelper helper;
+    helper.Setup(graph);
+    helper.FixCircle();
+    auto sub_graph = helper.Build();
+    SPDLOG_DEBUG("DivideGraph finish. subgraph size: {}", sub_graph.size());
     return sub_graph;
 }
 

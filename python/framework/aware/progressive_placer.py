@@ -11,6 +11,7 @@ except:
 import numpy as np
 from framework.aware.progressive_graph import ProgressiveGraph
 from framework.aware.progressive_nn import MessagePassingProgressiveNN
+from framework.tools import log
 
 __doc__ = "The placer of aware algorithm, including node embedding and reinforcement learning"
 
@@ -101,8 +102,8 @@ class ProgressivePlacer:
                     best_runtime = ep_best_placement
 
                 self.update_best_pl(ep_best_reward_runtime, ep_best_placement, episode, is_eval_episode)
-                print("Episode best pl runtime", ep_best_placement_runtime)
-                print("Episode best pl (simplified)", [best_placement[node] for node in self.nx_graph.nodes()])
+                log.debug("Episode best pl runtime %s", ep_best_placement_runtime)
+                log.debug("Episode best pl (simplified) %s", [best_placement[node] for node in self.nx_graph.nodes()])
 
                 self.best_placement = best_placement
 
@@ -191,7 +192,7 @@ class ProgressivePlacer:
         run_times = np.transpose(run_times)
         memory_utils = np.array(memory_utils)
 
-        print(f"Total time: {time.time() - s1}   NN time: {nn_time}")
+        log.debug("Total time: %s   NN time: %s", time.time() - s1, nn_time)
 
         return (
             episode_best_pl,
@@ -287,4 +288,4 @@ class ProgressivePlacer:
     def save_model(self, sess, episode):
         save_path = self.config_params["output_save_path"] + "/model"
         self.model_saver.save(sess, save_path, global_step=episode, write_meta_graph=False)
-        print(f"Saved model at {save_path}.")
+        log.debug("Saved model at %s", save_path)

@@ -203,7 +203,6 @@ class ProgressiveNN(ReinforceAgent):
         self.sample, self.log_probs, self.expl_act = self._sample(classifier)
         self.entropy = self._get_entropy(classifier)
         # note that loss resamples instead of reading from ph
-        # print(self.entropy)
         self.pl_ent_loss = self.entropy * -self.simulator_params["ent_dec"]
         self.log_prob_loss = -1 * self.log_probs
         self.train_op, self.logprob_grad_outs, self.ent_grad_outs = self._build_train_ops(

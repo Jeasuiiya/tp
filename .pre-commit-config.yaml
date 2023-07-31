@@ -11,6 +11,11 @@ repos:
     entry: "./scripts/run-clang-tidy -p build -quiet $1"
     language: system
     files: ^(./)?((ccsrc)|(tests))/.*$
+  - id: "cppcheck"
+    name: "[cppcheck] Check for Tensorflow"
+    entry: "./scripts/cppcheck-tf"
+    language: system
+    files: ^(./)?((ccsrc/adapters/tensorflow))/.*$
   - id: "check-py-format"
     name: "[black] Check for Python Format"
     entry: black --check

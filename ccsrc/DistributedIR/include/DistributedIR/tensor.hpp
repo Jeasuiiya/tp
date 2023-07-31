@@ -4,6 +4,7 @@
 #define FRAMEWORK_IR_TENSOR_H
 
 #include <cstdint>
+#include <numeric>
 #include <vector>
 
 #include "common/error.hpp"
@@ -89,10 +90,8 @@ struct AbstractTensor {
     AbstractTensor(DataType dtype, const shape_t& shape) {
         this->dtype = dtype;
         this->shape = shape;
-        size = 1;
-        for (const auto& i : this->shape) {
-            size *= i;
-        }
+        size = std::accumulate(this->shape.begin(), this->shape.end(), 1,
+                               [](const auto& a, const auto& b) { return a * b; });
     }
     // Tensor require ptr's ownership, auto free memory
     AbstractTensor(DataType dtype, const shape_t& shape, void* ptr, size_t length) : AbstractTensor(dtype, shape) {
@@ -186,7 +185,6 @@ struct fmt::formatter<framework::DataType> {
                 break;
             case framework::DataType::F32:
                 s = "F32";
-                break;
                 break;
             case framework::DataType::F64:
                 s = "F64";

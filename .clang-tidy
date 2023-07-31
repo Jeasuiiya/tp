@@ -9,6 +9,8 @@ Checks: >
   performance-*,
   portability-*,
   readability-*,
+  -misc-confusable-identifiers,
+  -bugprone-lambda-function-name,
   -google-readability-braces-around-statements,
   -google-readability-namespace-comments,
   -google-runtime-references,

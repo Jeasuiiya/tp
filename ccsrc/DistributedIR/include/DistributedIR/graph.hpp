@@ -92,9 +92,9 @@ class SubGraph : public Graph {
     friend struct fmt::formatter<SubGraph>;
     friend struct fmt::formatter<SubGraphPtr>;
 
-    std::vector<SubGraphWeakPtr> input_graphs;                          // 输入图
+    std::vector<SubGraphPtr> input_graphs;                              // 输入图
     std::vector<std::vector<std::pair<StrAndInt, StrAndInt>>> inputs;   // 各图输入
-    std::vector<SubGraphWeakPtr> output_graphs;                         // 输出图
+    std::vector<SubGraphPtr> output_graphs;                             // 输出图
     std::vector<std::vector<std::pair<StrAndInt, StrAndInt>>> outputs;  // 输出
     // std::vector<std::multimap<StrAndInt, StrAndInt>> outputs;          // 输出
   public:
@@ -109,7 +109,8 @@ class SubGraph : public Graph {
     }
     std::string Device() {
         // SubGraph has 1 node at least.
-        assert(!Nodes().empty());
+        auto b = !Nodes().empty();
+        assert(b);
         auto r = GetNode(0);
         assert(r.has_value());
         return r.value()->Device();
@@ -154,7 +155,7 @@ struct fmt::formatter<framework::Graph> {
 
     template <typename FormatContext>
     auto format(const framework::Graph& g, FormatContext& ctx) const -> decltype(ctx.out()) {
-        auto nodes = g.nodes | ranges::views::transform([](auto& i) { return fmt_shared(i); });
+        auto nodes = g.nodes | ranges::views::transform([](const auto& i) { return fmt_shared(i); });
         return fmt::format_to(ctx.out(), "Graph(nodes={}, outputs={})", nodes, g.returns);
     }
 };
@@ -163,20 +164,20 @@ template <>
 struct fmt::formatter<framework::SubGraph> : public fmt::formatter<ShortFormat> {
     template <typename FormatContext>
     auto format(const framework::SubGraph& g, FormatContext& ctx) const -> decltype(ctx.out()) {
-        auto nodes = g.nodes | ranges::views::transform([](auto& i) { return fmt_shared(i); });
+        auto nodes = g.nodes | ranges::views::transform([](const auto& i) { return fmt_shared(i); });
         {
             if (presentation == 's') {
                 auto input_graphs =
-                    g.input_graphs | ranges::views::transform([](auto& i) { return fmt::ptr(i.lock().get()); });
+                    g.input_graphs | ranges::views::transform([](auto& i) { return fmt::ptr(i.get()); });
                 auto output_graphs =
-                    g.output_graphs | ranges::views::transform([](auto& i) { return fmt::ptr(i.lock().get()); });
+                    g.output_graphs | ranges::views::transform([](auto& i) { return fmt::ptr(i.get()); });
                 return fmt::format_to(
                     ctx.out(), "SubGraph({}, nodes={}, input_graphs={}, inputs={}, output_graphs={}, outputs={})",
                     fmt::ptr(&g), nodes, input_graphs, g.inputs, output_graphs, g.outputs);
             }
         }
-        auto input_graphs = g.input_graphs | ranges::views::transform([](auto& i) { return fmt_weak(i); });
-        auto output_graphs = g.output_graphs | ranges::views::transform([](auto& i) { return fmt_weak(i); });
+        auto input_graphs = g.input_graphs | ranges::views::transform([](const auto& i) { return fmt_shared(i); });
+        auto output_graphs = g.output_graphs | ranges::views::transform([](const auto& i) { return fmt_shared(i); });
         return fmt::format_to(ctx.out(),
                               "SubGraph({}, nodes={}, input_graphs={}, inputs={}, output_graphs={}, outputs={})",
                               fmt::ptr(&g), nodes, input_graphs, g.inputs, output_graphs, g.outputs);

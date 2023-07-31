@@ -1,19 +1,8 @@
-from typing import Any, Dict, List, Tuple
-from framework.core._graph import (
-    SubGraph,
-    Block,
-    DataType,
-)
+from typing import Any, Dict, List
+from framework.core.types import Block, GraphPortRef, BlockPortRef, BlockId, SubGraph
+from framework.tools import log
 
 __doc__ = "schedule blocks"
-
-NodeName = str
-GraphPortRef = Tuple[NodeName, int]
-BlockPortRef = Tuple[Block, int]
-BlockId = int
-PortIndex = int
-BlockInputPort = Tuple[PortIndex, BlockId, int, DataType, List]
-BlockOutPort = Tuple[PortIndex, DataType, List]
 
 
 class ScheduleContext:
@@ -54,27 +43,26 @@ class ScheduleContext:
         """
         queue = []
         ready = set({(0, i) for i in range(len(self.invars))})
+        visited = set()
 
         def can_enqueue(b):
-            if b.inputports_size == 0 and b.outputports_size > 0:
-                return True
+            if b.inputports_size == 0 and b.outputports_size >= 0:
+                return True and b not in visited
             if b.inputports_size == 0 and b.outputports_size == 0:
                 return False
             complete_flag = 0
             in_ports = b.inputports
             for i in map(lambda x: (x[1], x[2]), in_ports):
-                # print(i)
                 if i in ready:
                     complete_flag = complete_flag + 1
             if complete_flag == len(in_ports):
-                return True
+                return True and b not in visited
             return False
 
         def enqueue(block, callback=None):
-            if callback is None:
-                callback = queue.append
             if can_enqueue(block):
                 callback(b)
+                visited.add(block)
 
         queue_level = []
         for b in self.block2graph:
@@ -95,10 +83,23 @@ class ScheduleContext:
                     enqueue(b, next_level.append)
             if len(next_level) > 0:
                 queue.append(next_level)
+        # assert len(self.block2graph) == count
+        not_visited = []
+        for b, g in self.block2graph.items():
+            if b not in visited:
+                not_visited.append((b.id, tuple(map(lambda x: self.graph2block[x].id, g.input_graphs))))
+        if not_visited:
+            log.debug("not visited block: %s", not_visited)
 
     def block(self, graph: SubGraph):
+        """Manage a graph"""
+        if not isinstance(graph, SubGraph):
+            graph = SubGraph(graph)
+
         b = Block(graph)
         # record ref
+        assert self.graph2block.get(graph, None) is None
+        log.trace("block: %s nodes: %s", b.id, (i.name for i in graph.nodes))
         self.graph2block[graph] = b
         self.block2graph[b] = graph
         return b
@@ -114,27 +115,31 @@ class ScheduleContext:
         return_node_names = []
         if self.returns is not None and len(self.returns) != 0:
             return_node_names = list(zip(*self.returns))[0]
-        for i in self.graph2block.values():
-            graph = i.graph
+        log.debug("returns: %s", self.returns)
+        for block in self.graph2block.values():
+            graph = block.graph
+            out = list(map(lambda x: self.graph2block[x], graph.output_graphs))
+            log.trace("block: %s output blocks: %s", block.id, out)
+            self.execute_successor[block] = out
             for j in range(graph.nodes_num):
                 node = graph.get_node(j)
-                # print(j, node)
                 if node.name in return_node_names:
                     for k in node.output_indexes():
                         if node.output_name(k) in self.returns:
-                            i.add_outputport(node.output_type(k), node.output_shape(k))
-                            block_ref = (i.id, i.outputports[-1][0])
+                            block.add_outputport(node.output_type(k), node.output_shape(k))
+                            # -1 -> last line add
+                            block_ref = BlockPortRef(block.id, block.outputports[-1].index)
                             node_ref = node.output_name(k)
                             self.nodeoutput_blockoutput[node_ref] = block_ref
                             self.blockoutput_nodeoutput[block_ref] = node_ref
 
             for output_maps in graph.outputs:
                 for k in output_maps:
-                    node = graph.get_node(k[0][0])
-                    node_ref = node.output_name(k[0][1])
+                    node = graph.get_node(k.this.node)
+                    node_ref = node.output_name(k.this.index)
                     if self.nodeoutput_blockoutput.get(node_ref, None) is None:
-                        i.add_outputport(node.output_type(k[0][1]), node.output_shape(k[0][1]))
-                        block_ref = (i.id, i.outputports[-1][0])
+                        block.add_outputport(node.output_type(k.this.index), node.output_shape(k.this.index))
+                        block_ref = BlockPortRef(block.id, block.outputports[-1].index)
                         self.nodeoutput_blockoutput[node_ref] = block_ref
                         self.blockoutput_nodeoutput[block_ref] = node_ref
 
@@ -142,39 +147,35 @@ class ScheduleContext:
         input_node_names = []
         if self.invars is not None and len(self.invars) != 0:
             input_node_names = list(zip(*self.invars))[0]
-        for i in self.graph2block.values():
-            graph = i.graph
-            # external input first
-            for j in range(graph.nodes_num):
-                node = graph.get_node(j)
+        for block in self.graph2block.values():
+            graph = block.graph
+            for node_index in range(graph.nodes_num):
+                node = graph.get_node(node_index)
                 if node.op == "Input" and node.name in input_node_names:
-                    if i not in self.entry_blocks:
-                        self.entry_blocks.append(i)
+                    if block not in self.entry_blocks:
+                        self.entry_blocks.append(block)
                     global_input_index = input_node_names.index(node.name)
-                    # 0 block means external input. Input Op only has 1 output, type and shape index is 0
-                    i.add_inputport(0, global_input_index, node.output_type(0), node.output_shape(0))
-                    # record global input to current block port
+                    block.add_inputport(0, global_input_index, node.output_type(0), node.output_shape(0))
 
-                    self.block_input_var[global_input_index] = (i.id, len(i.inputports) - 1)
+                    self.block_input_var[global_input_index] = BlockPortRef(block.id, len(block.inputports) - 1)
                     self.blockoutput_nodeoutput[(0, global_input_index)] = node.output_name(0)
+            input_graphs, inputs = graph.input_graphs, graph.inputs
+            assert len(input_graphs) == len(inputs)
+
             for g, input_maps in zip(graph.input_graphs, graph.inputs):
                 ref_block = self.graph2block[g]
                 ref_block_id = ref_block.id
-                if self.execute_successor.get(ref_block, None) is None:
-                    self.execute_successor[ref_block] = [i]
-                else:
-                    self.execute_successor[ref_block].append(i)
                 node_ref_set = set()
-                for k in input_maps:  #   input_maps: List[Tuple[GraphPortRef, GraphPortRef]]
-                    if k[0] in node_ref_set:
+                for k in input_maps:
+                    if k.pre in node_ref_set:
                         continue
-                    node_ref_set.add(k[0])
-                    node = g.get_node(k[0][0])
-                    i.add_inputport(
+                    node_ref_set.add(k.pre)
+                    node = g.get_node(k.pre.node)
+                    block.add_inputport(
                         ref_block_id,
-                        self.nodeoutput_blockoutput[node.output_name(k[0][1])][1],
-                        node.output_type(k[0][1]),
-                        node.output_shape(k[0][1]),
+                        self.nodeoutput_blockoutput[node.output_name(k.pre.index)].index,
+                        node.output_type(k.pre.index),
+                        node.output_shape(k.pre.index),
                     )
 
     def regular_blocks(self):

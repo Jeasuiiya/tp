@@ -7,10 +7,11 @@ import jax
 import jax.core as jc
 import jax.lax as jl
 import jax._src.prng as jprng
+import jax._src.ad_util as jad_util
+import jax._src.pjit as jpjit
+import jax._src.state as jstate
 from jax import util
-from jax._src.pjit import pjit_p
-from jax._src.state import get_p, addupdate_p, swap_p
-from framework.core._graph import DataType
+from framework.core.lib._graph import DataType
 import ml_dtypes
 
 bfloat16 = ml_dtypes.bfloat16
@@ -61,8 +62,9 @@ def register_module_ops(m):
 register_module_ops(jl)
 register_module_ops(jax.custom_derivatives)
 register_module_ops(jprng)
-register_module_ops(jax._src.ad_util)  # pylint: disable=protected-access
-register_op(pjit_p, get_p, addupdate_p, swap_p)
+register_module_ops(jad_util)
+register_module_ops(jpjit)
+register_module_ops(jstate)
 
 
 @dataclass
@@ -150,15 +152,13 @@ def _prepare_const(context, graph, write):
 
 def _prepare_invars(context, scontext, block):
     vars_in = {}
-    block_input_var = []
     for i in block.inputports:
-        node_ref = scontext.blockoutput_nodeoutput[(i[1], i[2])]
-        block_input_var.append(node_ref)
-        data_type, data_shape = i[3], i[4]
+        node_ref = scontext.blockoutput_nodeoutput[(i.source, i.source_index)]
+        data_type, data_shape = i.dtype, i.shape
         vars_in[node_ref] = jc.Var(
             next(context.counter), SUFFIX, jc.ShapedArray(data_shape, DATA_TYPE_TO_SHAPE_ARRAY_DTYPE[data_type])
         )
-    return vars_in, block_input_var
+    return vars_in
 
 
 def block2jaxpr(sctx, block, params=None, inline=False):
@@ -182,7 +182,7 @@ def block2jaxpr(sctx, block, params=None, inline=False):
 
     vars_const, indegree0 = _prepare_const(ctx, graph, write)
 
-    vars_in, block_input_var = _prepare_invars(ctx, sctx, block)
+    vars_in = _prepare_invars(ctx, sctx, block)
 
     util.safe_map(write, vars_in.keys(), vars_in.values())
     util.safe_map(write, vars_const.keys(), vars_const.values())
@@ -230,7 +230,7 @@ def block2jaxpr(sctx, block, params=None, inline=False):
     const_vars = list(zip(*vars_const.items()))
     pr = jc.Jaxpr(
         constvars=[] if len(const_vars) == 0 else const_vars[1],
-        invars=util.safe_map(read, block_input_var),
+        invars=util.safe_map(read, vars_in.keys()),
         outvars=outvars,
         eqns=eqns,
     )

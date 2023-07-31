@@ -57,7 +57,7 @@ class NodeBase {
 
     DECL_ACCESSOR(Name, Name, name, M)
     DECL_ACCESSOR(Op, Op, op, M)
-    DECL_ACCESSOR(Device, Device, device, M)
+    DECL_ACCESSOR(Device, Device, device, C)
     DECL_ACCESSOR(Inputs, Inputs, inputs, M)
     DECL_ACCESSOR(Outputs, Outputs, outputs, M)
     DECL_ACCESSOR(OutputsNum, OutputsNum, outputs_num, M)
@@ -80,7 +80,7 @@ class NodeBase {
     }
 
     cpp::result<EdgePort<InputStr>&, Error> InputPort(int index) {
-        auto r = ranges::find_if(input_ports, [=](EdgePort<InputStr>& i) { return i.index == index; });
+        auto r = ranges::find_if(input_ports, [=](const EdgePort<InputStr>& i) { return i.index == index; });
         if (r == input_ports.end()) {
             return cpp::fail(Error(Kind::Invalid, fmt::format("Input EdgePort for index {} is not exist.", index)));
         }
@@ -114,12 +114,13 @@ class NodeBase {
     }
 
     void DelInputPort(int index) {
-        input_ports = input_ports | ranges::views::remove_if([=](EdgePort<InputStr>& p) { return p.index == index; })
+        input_ports = input_ports
+                      | ranges::views::remove_if([=](const EdgePort<InputStr>& p) { return p.index == index; })
                       | ranges::to<decltype(input_ports)>();
     }
 
     void SortInputPort() {
-        ranges::sort(input_ports, [](auto& a1, auto& a2) { return a1.index < a2.index; });
+        ranges::sort(input_ports, [](const auto& a1, const auto& a2) { return a1.index < a2.index; });
     }
     cpp::result<void, Error> AddOutputPort(DataType dtype, const shape_t& shape, int index) {
         return AddOutputPort(EdgePort<AbstractTensor>(AbstractTensor(dtype, shape), index));
@@ -140,12 +141,12 @@ class NodeBase {
 
     void DelOutputPort(int index) {
         output_ports = output_ports
-                       | ranges::views::remove_if([=](EdgePort<AbstractTensor>& p) { return p.index == index; })
+                       | ranges::views::remove_if([=](const EdgePort<AbstractTensor>& p) { return p.index == index; })
                        | ranges::to<decltype(output_ports)>();
     }
 
     void SortOutputPort() {
-        ranges::sort(output_ports, [](auto& a1, auto& a2) { return a1.index < a2.index; });
+        ranges::sort(output_ports, [](const auto& a1, const auto& a2) { return a1.index < a2.index; });
     }
     size_t InputSize() {
         return input_ports.size();
@@ -165,7 +166,7 @@ class NodeBase {
     }
 
     cpp::result<EdgePort<AbstractTensor>&, Error> OutputPort(int index) {
-        auto r = ranges::find_if(output_ports, [=](EdgePort<AbstractTensor>& i) { return i.index == index; });
+        auto r = ranges::find_if(output_ports, [=](const EdgePort<AbstractTensor>& i) { return i.index == index; });
         if (r == output_ports.end()) {
             return cpp::fail(Error(Kind::Invalid, fmt::format("Output EdgePort for index {} is not exist.", index)));
         }

@@ -28,7 +28,7 @@ namespace framework {
  */
 class RpcServiceClient {
   public:
-    RpcServiceClient(std::shared_ptr<Channel> channel);
+    explicit RpcServiceClient(std::shared_ptr<Channel> channel);
 
     /**
      * call strategy rpc

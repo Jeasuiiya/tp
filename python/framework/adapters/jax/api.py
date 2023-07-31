@@ -1,12 +1,14 @@
 import functools
 from typing import Callable, Optional
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import jax
 import numpy as np
 from jax.tree_util import tree_flatten, tree_unflatten
 from framework.adapters.jax.jaxpr2graph import jaxpr2graph
 from framework.adapters.jax.block2jaxpr import block2jaxpr
-from framework.core._graph import divide_graph, search_policy, Device
+from framework.core.lib._graph import divide_graph, search_policy, Device
 from framework.adapters.jax.schedule import ScheduleContext
+from framework.tools import log
 
 __doc__ = """
 parallelize api
@@ -24,7 +26,7 @@ def register_device():
         DEVICE_MAP[str(i)] = i
     for i in jax.devices("gpu"):
         DEVICE_MAP[str(i)] = i
-    print(DEVICE_MAP)
+    log.debug(DEVICE_MAP)
 
 
 register_device()
@@ -62,23 +64,19 @@ class MakeScheduleContext:
     def __call__(self, in_avals):
         pr, out_tree = jax.make_jaxpr(self.func, return_shape=True)(*self.args, **self.kwargs)
         gw = jaxpr2graph(pr)
-        print("jaxpr2graph finished")
+        log.debug("jaxpr2graph finished")
         g = gw.graph
         # call strategy search
 
         device_map = search_policy(g, self.devices, self.policy)
-        # g.get_node("add_1").device = "TFRT_CPU_0"
-        # g.get_node("custom_jvp_call_1").device = "dev:1"
-        # g.get_node("mul_1").device = "TFRT_CPU_0"
-        # divide graph according to strategy
-        print("search policy finished")
 
-        # print(device_map)
+        log.debug("search policy finished. placement: %s", device_map)
+
         if device_map is not None:
             for k, v in device_map.items():
                 g.get_node(k).device = v
         else:
-            print("search policy failed.")
+            log.warning("search policy failed.")
         sub_graphs = divide_graph(g)
 
         # prepare context
@@ -94,7 +92,11 @@ class MakeScheduleContext:
         ctx.regular_blocks()
         # ctx.topo_order = tuple(filter(lambda b: b.outputports_size != 0, ctx.order()))
         ctx.topo_order = tuple(ctx.order())
-        print(ctx.topo_order)
+        log.debug(
+            "scheduled: %s, all blocks: %s ",
+            functools.reduce(lambda a, b: a + len(b), ctx.topo_order, 0),
+            len(ctx.graph2block),
+        )
         return ctx
 
 
@@ -115,22 +117,27 @@ def parallelize(func: Optional[Callable] = None, *, devices=None, policy="fddps"
     def decorator(func):
         make_ctx = MakeScheduleContext(func, devices or (), policy or "fddps")
 
+        def exec_block(ctx, flat_args, block):
+            bargs = []
+            for i in block.inputports:
+                if i.source == 0:  # block id is 0, global input
+                    bargs.append(flat_args[i.source_index])
+                else:
+                    a = ctx.block_outputs[i.source][i.source_index]
+                    if not isinstance(a, np.ndarray):
+                        if a.device() is not DEVICE_MAP[block.device]:
+                            a = jax.device_put(a, DEVICE_MAP[block.device]).block_until_ready()
+                    bargs.append(a)
+            with jax.default_device(DEVICE_MAP[block.device]):
+                return jax.block_until_ready(ctx.cache_block_executable(ctx, block)(*bargs))
+
         def schedule_level(ctx, level, flat_args):
             # todo(huangchengchuang): all block in level could be parallelized
-            for b in level:
-                bargs = []
-                for i in b.inputports:
-                    if i[1] == 0:  # block id is 0, global input
-                        bargs.append(flat_args[i[2]])
-                    else:
-                        a = ctx.block_outputs[i[1]][i[2]]
-                        if not isinstance(a, np.ndarray):
-                            if a.device() is not DEVICE_MAP[b.device]:
-                                a = jax.device_put(a, DEVICE_MAP[b.device])
-                        bargs.append(a)
-                with jax.default_device(DEVICE_MAP[b.device]):
-                    a = ctx.cache_block_executable(ctx, b)(*bargs)
-                ctx.block_outputs[b.id] = a
+            with ThreadPoolExecutor(max_workers=128) as executor:
+                future_to_results = {executor.submit(exec_block, ctx, flat_args, block): block for block in level}
+                for future in as_completed(future_to_results):
+                    block = future_to_results[future]
+                    ctx.block_outputs[block.id] = future.result()
 
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
@@ -142,11 +149,18 @@ def parallelize(func: Optional[Callable] = None, *, devices=None, policy="fddps"
 
             def returns(r):
                 block_ref = ctx.nodeoutput_blockoutput[r]
-                return ctx.block_outputs[block_ref[0]][block_ref[1]]
+                return ctx.block_outputs[block_ref.block][block_ref.index]
 
             _, out_tree = tree_flatten(ctx.out_tree)
             return tree_unflatten(out_tree, map(returns, ctx.returns))
 
+        def run_context(*args, **kwargs):
+            make_ctx.args, make_ctx.kwargs = args, kwargs
+            in_avals, _, _ = _abstractify(args, kwargs)
+            ctx = make_ctx(tuple(in_avals))
+            return ctx
+
+        wrapper.run_context = run_context
         return wrapper
 
     if func is None:

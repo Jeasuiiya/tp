@@ -57,7 +57,7 @@ class fmt_weak {
     const std::weak_ptr<T> ptr;
 
   public:
-    fmt_weak(const std::weak_ptr<T>& ptr) : ptr(ptr) {}
+    explicit fmt_weak(const std::weak_ptr<T>& ptr) : ptr(ptr) {}
 };
 struct ShortFormat;
 template <>

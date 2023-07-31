@@ -82,7 +82,7 @@ template <>
 struct fmt::formatter<framework::Device> : public fmt::formatter<ShortFormat> {
     template <typename FormatContext>
     auto format(const framework::Device& d, FormatContext& ctx) const -> decltype(ctx.out()) {
-        return fmt::format_to(ctx.out(), "Devide(name={}, memory={}, free_memory={}, execute_time={})", d.name,
+        return fmt::format_to(ctx.out(), "Device(name={}, memory={}, free_memory={}, execute_time={})", d.name,
                               d.memory, d.free_memory, d.execute_time);
     }
 };

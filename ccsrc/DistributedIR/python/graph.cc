@@ -37,10 +37,7 @@ class Node {
     explicit Node(std::shared_ptr<framework::NodeBase> node) {
         node_ptr = std::move(node);
     }
-    Node(Node&& node) noexcept {
-        node_ptr = node.node_ptr;
-    }
-    Node(Node& node) {
+    Node(const Node& node) {
         node_ptr = node.node_ptr;
     }
     Node() {
@@ -277,7 +274,7 @@ class SubGraph {
     DECL_GETTER_PROXY(GetOutputs, subgraph_ptr, GetOutputs)
 
     std::string ToString() {
-        return fmt::format("{:s}", subgraph_ptr);
+        return fmt::format("{:s}", fmt_shared(subgraph_ptr));
     }
     ~SubGraph() = default;
 };
@@ -320,6 +317,7 @@ PYBIND11_MODULE(PYBIND11_CURRENT_MODULE_NAME, m) {
 
     py::class_<PyNode>(m, "Node")
         .def(py::init())
+        .def(py::init([](const PyNode& node) { return PyNode(node); }))
         .def(py::init([](const std::string& name, const std::string& op) {
             auto n = std::make_unique<PyNode>();
             n->SetName(std::move(name));
@@ -367,32 +365,44 @@ PYBIND11_MODULE(PYBIND11_CURRENT_MODULE_NAME, m) {
         .def("add_return", &PyGraph::AddReturn)
         .def_property_readonly("node_num", [](PyGraph& g) { return g.GraphPtr()->GetNodesNum(); })
         .def_property_readonly("returns", [](PyGraph& g) { return g.GraphPtr()->Returns(); })
+        .def_property_readonly("nodes",
+                               [](PyGraph& g) {
+                                   return g.GraphPtr()->Nodes()
+                                          | ranges::views::transform([](auto& node) { return PyNode(node); })
+                                          | ranges::to_vector;
+                               })
         .def("__repr__", &PyGraph::ToString)
         .def("__str__", &PyGraph::ToString);
 
     py::class_<PySubGraph>(m, "SubGraph")
-        // .def(py::init([](PySubGraph& subgraph) { return new PySubGraph(subgraph); }))
-        // .def("get_subgraph_ptr", &PySubGraph::SubGraphPtr)
+        .def(py::init([](const PySubGraph& subgraph) { return PySubGraph(subgraph); }))
         .def_property_readonly("nodes_num", &PySubGraph::GetNodesNum)
         .def("get_node", py::overload_cast<int, bool>(&PySubGraph::GetNode), py::arg("index"), py::arg("error") = false)
         .def("get_node", py::overload_cast<const std::string&, bool>(&PySubGraph::GetNode), py::arg("name"),
              py::arg("error") = false)
         .def_property_readonly("inputs", &PySubGraph::GetInputs)
         .def_property_readonly("outputs", &PySubGraph::GetOutputs)
-        .def_property_readonly("input_graphs",
-                               [](PySubGraph& g) {
-                                   auto& a = g.SubGraphPtr()->GetInputGraphs();
-                                   return a | ranges::views::transform([](auto& i) { return PySubGraph(i.lock()); })
-                                          | ranges::to_vector;
-                               })
+        .def_property_readonly(
+            "input_graphs",
+            [](PySubGraph& g) {
+                auto& a = g.SubGraphPtr()->GetInputGraphs();
+                return a | ranges::views::transform([](framework::SubGraphPtr& i) { return PySubGraph(i); })
+                       | ranges::to_vector;
+            })
         .def_property_readonly("output_graphs",
                                [](PySubGraph& g) {
                                    auto& a = g.SubGraphPtr()->GetOutputGraphs();
-                                   return a | ranges::views::transform([](auto& i) { return PySubGraph(i.lock()); })
+                                   return a | ranges::views::transform([](auto& i) { return PySubGraph(i); })
                                           | ranges::to_vector;
                                })
         .def("add_return", [](PySubGraph& g, const StrAndInt& r) { return g.SubGraphPtr()->AddReturn(r); })
         .def_property_readonly("returns", [](PySubGraph& g) { return g.SubGraphPtr()->Returns(); })
+        .def_property_readonly("nodes",
+                               [](PySubGraph& g) {
+                                   return g.SubGraphPtr()->Nodes()
+                                          | ranges::views::transform([](auto& node) { return PyNode(node); })
+                                          | ranges::to_vector;
+                               })
         .def("__str__", &PySubGraph::ToString)
         .def("__repr__", [](PySubGraph& g) { return fmt::format("{:s}", fmt_shared(g.SubGraphPtr())); })
         .def("__hash__", [](PySubGraph& g) { return std::hash<framework::SubGraphPtr>()(g.SubGraphPtr()); })
@@ -450,18 +460,17 @@ PYBIND11_MODULE(PYBIND11_CURRENT_MODULE_NAME, m) {
         }
         return r.value() | ranges::views::values | ranges::views::transform([](auto& g) { return PySubGraph(g); })
                | ranges::to_vector;
-        // return r.value() | ranges::views::values | ranges::to_vector;
     });
     m.def("search_policy",
           [](PyGraph& graph, std::vector<PyDevice> devices, const std::string& policy) -> pybind11::object {
-              spdlog::debug("devices:{}", devices);
-              spdlog::debug("policy:{}", policy);
+              SPDLOG_DEBUG("devices:{}", devices);
+              SPDLOG_DEBUG("policy:{}", policy);
               if (policy == "fddps") {
                   framework::CostGraph cost_graph = framework::ConvertGraphToCostGraph(*graph.GraphPtr());
                   framework::FDDPSAlgorithm fddps_algorithm(cost_graph, std::move(devices));
                   auto r = fddps_algorithm.Placement();
                   if (r.has_error()) {
-                      spdlog::error("call fddps error. {}", r.error().text);
+                      SPDLOG_ERROR("call fddps error. {}", r.error().text);
                       return pybind11::none();
                   }
                   auto device_map = GetDeviceMapFromCostNodes(r.value());
@@ -470,7 +479,7 @@ PYBIND11_MODULE(PYBIND11_CURRENT_MODULE_NAME, m) {
               if (policy == "sgp") {
                   framework::Partition partition(*graph.GraphPtr(), devices.size(), devices);
                   auto& device_map = partition.op_group;
-                  spdlog::debug("sgp result:{}", device_map);
+                  SPDLOG_DEBUG("sgp result:{}", device_map);
                   return pybind11::cast(device_map);
               }
               return pybind11::none();
