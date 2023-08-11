@@ -6,7 +6,7 @@
 Debug工具`tf-run-graph`, 执行tf1计算图
 ```bash
 # 依赖
-pip install -r dev-requirements.txt
+pip install -r requirements-dev.txt
 ./scripts/build-tf --config-only
 bazel build tf-run-graph --config=dbg
 bazel build rpc_server --config=dbg
@@ -25,9 +25,7 @@ TF_PLACEMENT_RPC_ADDRESS=localhost:9001 ./bazel-bin/tf-run-graph --graph=/path/t
 
 环境变量
 
-`TF_PLACEMENT_POLICY`: 可选值：`aware`, `fddps`  , `trinity` 
-`TF_PLACEMENT_RPC_ADDRESS`: 使用aware方法时连接的RPC地址，需要提前运行`rpc_server`。例：`localhost:9001`, `unix://rpc_server.socket`
-
+`TF_PLACEMENT_POLICY`: 可选值：`fddps`, `sgp`
 
 
 
@@ -40,7 +38,7 @@ TF_PLACEMENT_RPC_ADDRESS=localhost:9001 ./bazel-bin/tf-run-graph --graph=/path/t
 打包Tensorflow到dist
 ```bash
 # 依赖
-pip install -r dev-requirements.txt
+pip install -r requirements-dev.txt
 ./scripts/build-tf
 ```
 
@@ -56,7 +54,7 @@ pip install -r dev-requirements.txt
 * ninja
 
 ```bash
-pip install -r dev-requirements.txt
+pip install -r requirements-dev.txt
 ./scripts/configure
 cd build && ninja
 ```

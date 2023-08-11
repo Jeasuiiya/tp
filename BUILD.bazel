@@ -65,10 +65,9 @@ cc_library(
         "TFAdapterHeaders",
         "FDDPSPolicy",
         "SGPPolicy",
-	"rpc_client",
         "@org_tensorflow//tensorflow/core/common_runtime:optimization_registry",
         "@org_tensorflow//tensorflow/core/grappler/clusters:virtual_cluster",
-	"@jsoncpp_git//:jsoncpp",
+	    "@jsoncpp_git//:jsoncpp",
     ],
     includes = ["ccsrc/adapters/include"],
     alwayslink = 1,
@@ -89,15 +88,6 @@ cc_library(
     deps = ["DistributedIRHeaders"]
 )
 
-cc_library(
-    name = "CostGraph",
-    srcs = ["ccsrc/cost_graph/fusion/aware_fusion.cc"],
-    includes = ["ccsrc/cost_graph/include"],
-    deps = ["CostGraphHeaders"],
-    copts = select({
-        "//conditions:default": CC_OPTS,
-    }),
-)
 
 cc_library(
     name = "PolicyHeaders",
@@ -113,23 +103,6 @@ cc_library(
     deps = ["CommonHeaders"]
 )
 
-cc_library(
-    name = "AwarePolicy",
-    srcs = glob(["ccsrc/policy/aware/*.cc"]),
-    deps = ["PolicyHeaders"],
-    copts = select({
-        "//conditions:default": CC_OPTS,
-    }),
-)
-
-cc_library(
-    name = "TrinityPolicy",
-    srcs = glob(["ccsrc/policy/trinity/*.cc"]),
-    deps = ["PolicyHeaders"],
-    copts = select({
-        "//conditions:default": CC_OPTS,
-    }),
-)
 
 cc_library(
     name = "FDDPSPolicy",
@@ -176,109 +149,3 @@ tf_cc_binary(
     }),
 )
 
-# rpc_service_proto_genproto
-# rpc_service_cc_grpc_proto
-# rpc_service_cc_proto
-# rpc_service_proto_cc_impl
-# tf_proto_library(
-#     name = "rpc_service_proto",
-#     srcs = ["service.proto"],
-#     make_default_target_header_only = True,
-#     has_services = 1,
-#     cc_api_version = 2,
-#     cc_stubby_versions = ["2"],
-#     create_go_proto = False,
-#     create_grpc_library = True,
-#     create_java_proto = False,
-#     create_service = True,
-# )
-
-# proto for rpc service
-proto_library(
-    name = "rpc_service_proto",
-    srcs = ["ccsrc/adapters/tensorflow/rpc/service.proto"],
-    deps = [":graph_proto"]
-)
-
-# proto for rpc CallRequest and CallResponse argument
-proto_library(
-    name = "graph_proto",
-    srcs = ["ccsrc/adapters/tensorflow/rpc/graph.proto"],
-)
-
-
-cc_proto_library(
-    name = "graph_proto_cc_impl",
-    deps = [":graph_proto"],
-)
-
-cc_library(
-    name = "graph_proto_cc",
-    includes = ["ccsrc"],
-    deps = ["graph_proto_cc_impl"]
-)
-
-
-cc_proto_library(
-    name = "rpc_service_proto_cc_impl",
-    deps = [":rpc_service_proto"],
-)
-
-cc_grpc_library(
-    name = "rpc_service_cc_grpc_proto",
-    srcs = [":rpc_service_proto"],
-    grpc_only = True,
-    deps = [":rpc_service_proto_cc_impl"],
-)
-
-cc_library(
-    name = "rpc_service_cc",
-    includes = ["ccsrc"],
-    deps = ["rpc_service_proto_cc_impl", "rpc_service_cc_grpc_proto"]
-)
-
-cc_library(
-    name = "rpc_util",
-    srcs = ["ccsrc/adapters/tensorflow/rpc/util.cc"],
-    hdrs = ["ccsrc/adapters/include/adapters/tensorflow/rpc/util.h"],
-    strip_include_prefix = "ccsrc/adapters/include/",
-    deps = ["graph_proto_cc", "DistributedIR"],
-    copts = select({
-        "//conditions:default": CC_OPTS,
-    }),
-)
-
-cc_binary(
-    name = "rpc_server",
-    srcs = ["ccsrc/adapters/tensorflow/rpc/server.cc"],
-    deps = [
-        "AwarePolicy",
-        "TrinityPolicy",
-        "CostGraph",
-        "rpc_util",
-        "rpc_service_cc",
-        "@fmt",
-        "@com_github_grpc_grpc//:grpc++",
-        "@com_google_protobuf//:protobuf",
-    ],
-    copts = select({
-        "//conditions:default": CC_OPTS,
-    }),
-)
-
-cc_library(
-    name = "rpc_client",
-    srcs = ["ccsrc/adapters/tensorflow/rpc/client.cc"],
-    hdrs = ["ccsrc/adapters/include/adapters/tensorflow/rpc/client.h"],
-    strip_include_prefix = "ccsrc/adapters/include/",
-    deps = [
-        "rpc_util",
-        "rpc_service_cc",
-        "@fmt",
-        "@com_github_grpc_grpc//:grpc++",
-        "@com_google_protobuf//:protobuf",
-    ],
-    copts = select({
-        "//conditions:default": CC_OPTS,
-    }),
-)

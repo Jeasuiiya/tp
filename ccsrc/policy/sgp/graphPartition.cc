@@ -18,12 +18,12 @@ Partition::Partition(Graph& graph, std::int64_t group_num, std::vector<Device> d
         std::string group_name = attr["colocation_group"];
         if (group_info.count(group_name) == 0) {
             std::vector<std::string> ops;
-            ops.push_back(node->Name());
+            ops.push_back((*node).Name());
             group_info.insert(std::pair<std::string, std::vector<std::string>>(group_name, ops));
         } else {
-            group_info[group_name].push_back(node->Name());
+            group_info[group_name].push_back((*node).Name());
         }
-        graph_total_cost += this->GetOpMemory(this->builder.graph, node->Name());
+        graph_total_cost += this->GetOpMemory(this->builder.graph, (*node).Name());
     }
     this->group_balance_cost = graph_total_cost / group_num;
     for (std::int64_t i = 0; i < group_num; i++) {
@@ -54,9 +54,9 @@ void Partition::Split(Graph& graph) {
     uint64_t index = 0;
     uint64_t device_num = this->group_list.size();
     std::set<std::string> visited;
-    auto& graph_nodes = graph.Nodes();
+    std::vector<std::shared_ptr<NodeBase>>& graph_nodes = graph.Nodes();
     for (auto& node : graph_nodes) {
-        std::string op = node->Name();
+        std::string op = (*node).Name();
         std::map<std::string, std::int64_t> out_edge = this->builder.out_edge[op];
         for (auto& it : out_edge) {
             if (it.second > 0) {

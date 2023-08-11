@@ -36,7 +36,7 @@ cmake --build . && cmake --install .
 wget https://github.com/TimoLassmann/kalign/archive/refs/tags/v3.3.5.tar.gz
 tar xvf v3.3.5.tar.gz
 cd kalign-3.3.5
-mkdir build 
+mkdir build
 cd build
 cmake -DCMAKE_INSTALL_PREFIX=<PREFIX>/kalign ..
 cmake --build . && cmake --install .

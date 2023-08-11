@@ -8,9 +8,6 @@
 #include <utility>
 
 #include "DistributedIR/graph.hpp"
-#include "adapters/tensorflow/rpc/client.h"
-#include "adapters/tensorflow/rpc/graph.pb.h"
-#include "adapters/tensorflow/rpc/util.h"
 #include "common/fmt.hpp"
 #include "common/log.h"
 #include "cost_graph/common.hpp"
@@ -99,21 +96,10 @@ int GetDeviceNum() {
     return std::stoi(fetch_node);
 }
 
-std::string GetPlacementRpcAddressEnvVar() {
-    const char* address = getenv("TF_PLACEMENT_RPC_ADDRESS");
-    if (!address) {
-        SPDLOG_WARN("TF_PLACEMENT_RPC_ADDRESS is not set");
-        return "";
-    }
-    return std::string{address};
-}
-
 enum class PolicyType {
     None,
-    Aware,
     FdDps,
     SGP,
-    Trinity,
 };
 
 PolicyType GetPlacementPolicyVar() {
@@ -122,17 +108,11 @@ PolicyType GetPlacementPolicyVar() {
         return PolicyType::None;
     }
     std::string policy_str{policy};
-    if (policy_str == "aware") {
-        return PolicyType::Aware;
-    }
     if (policy_str == "fddps") {
         return PolicyType::FdDps;
     }
     if (policy_str == "SGP") {
         return PolicyType::SGP;
-    }
-    if (policy_str == "trinity") {
-        return PolicyType::Trinity;
     }
     return PolicyType::None;
 }
@@ -215,7 +195,7 @@ framework::Graph ConvertGraphDefToGraph(const GraphDef& graph_def) {
             node.AddInput(input);
         }
         auto sorted_outputs = std::move(context.name_to_output[node_def.name()]) | ranges::actions::unique
-                              | ranges::actions::sort([](const auto& a, auto& b) { return a.second < b.second; });
+                              | ranges::actions::sort([](const auto& a, const auto& b) { return a.second < b.second; });
         for (const auto& i : sorted_outputs) {
             node.AddOutput(i.first->name());
             framework::shape_t shape;
@@ -250,75 +230,8 @@ Status PlacementPass::Run(const GraphOptimizationPassOptions& options) {
         SPDLOG_WARN("F_PLACEMENT_POLICY is not set. skip PlacementPass.");
         return Status::OK();
     }
-    if (policy == PolicyType::Aware || policy == PolicyType::Trinity) {
-        auto rpc_address = GetPlacementRpcAddressEnvVar();
-        for (const auto& node : graph.Nodes()) {
-            std::int64_t comm_cost_input = 1;
-            std::int64_t comm_cost_output = 1;
-            std::map<std::string, std::string> attr = node->Attrs();
-            for (std::string input : node->Inputs()) {
-                if (attr.count("input:" + input) > 0) {
-                    std::string shape = attr.at("input:" + input);
-                    if (!shape.empty()) {
-                        std::string space = " ";
-                        std::vector<std::int64_t> number;
-                        size_t pos = 0;
-                        while ((pos = shape.find(space)) != string::npos) {
-                            number.push_back(atoi(shape.substr(0, pos).c_str()));
-                            shape.erase(0, pos + space.length());
-                        }
-                        std::int64_t comm_cost =
-                            std::accumulate(number.begin(), number.end(), 1, std::multiplies<int>());
-                        comm_cost *= sizeof(attr["type"]);
-                        comm_cost_input += comm_cost;
-                    }
-                }
-            }
-            node->PersistentMemory(comm_cost_input);
-            for (std::string output : node->Outputs()) {
-                if (attr.count("output:" + output) > 0) {
-                    std::string shape = attr.at("output:" + output);
-                    if (!shape.empty()) {
-                        std::string space = " ";
-                        std::vector<std::int64_t> number;
-                        size_t pos = 0;
-                        while ((pos = shape.find(space)) != string::npos) {
-                            number.push_back(atoi(shape.substr(0, pos).c_str()));
-                            shape.erase(0, pos + space.length());
-                        }
-                        std::int64_t comm_cost =
-                            std::accumulate(number.begin(), number.end(), 1, std::multiplies<int>());
-                        comm_cost *= sizeof(attr["type"]);
-                        comm_cost_output += comm_cost;
-                    }
-                }
-            }
-            node->OutputMemory(comm_cost_output);
-            std::int64_t compute_cost =
-                ceil(0.2
-                     * ceil((node->PersistentMemory() + node->OutputMemory())
-                            / (1
-                               + exp(ceil(-(fabs(node->PersistentMemory() - node->OutputMemory()))
-                                          / (1 + node->OutputMemory()))))));
-            node->ComputeCost(compute_cost);
-        }
-        if (rpc_address.empty()) {
-            SPDLOG_WARN("TF_PLACEMENT_RPC_ADDRESS is not set. skip!");
-            return Status::OK();
-        }
-        auto rpc_graph = framework::ConvertGraphToMessage(graph);
 
-        framework::RpcServiceClient client(grpc::CreateChannel(rpc_address, grpc::InsecureChannelCredentials()));
-        const char* policy_ = getenv("TF_PLACEMENT_POLICY");
-        std::string policy_str{policy_};
-        auto r = client.Call(rpc_graph, policy_str);
-        if (r.has_error()) {
-            SPDLOG_WARN("call rpc error. {}", r.error().text);
-            return Status::OK();
-        }
-        device_map = std::move(r.value());
-        SPDLOG_INFO(fmt::to_string(device_map));
-    } else if (policy == PolicyType::FdDps) {
+    if (policy == PolicyType::FdDps) {
         std::vector<framework::Device> devices;
         for (auto* i : options.device_set->devices()) {
             auto memory = i->attributes().memory_limit();

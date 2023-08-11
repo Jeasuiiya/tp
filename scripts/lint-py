@@ -8,4 +8,4 @@ fi
 
 which pylint
 pylint --version
-pylint "$2" "$1"
+pylint $2 $1

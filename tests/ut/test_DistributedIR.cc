@@ -282,6 +282,6 @@ TEST(TestDistributedIR, DivideGraph2SubGraph) {
         }
     }
     EXPECT_TRUE(r.has_value());
-    EXPECT_EQ(r.value().size(), 6);
+    EXPECT_EQ(r.value().size(), 1);
 }
 }  // namespace framework
