@@ -5,11 +5,11 @@ import itertools as it
 import jax
 import jax.numpy as jnp
 import jax.core as jcore
-from framework.adapters.jax.schedule import GraphPortRef
-from framework.adapters.jax.profile import profile_eqn, profile
-from framework.core.types import Graph, Node
-from framework.core.lib._graph import DataType
-from framework.tools import log
+from geesibling.adapters.jax.schedule import GraphPortRef
+from geesibling.adapters.jax.profile import profile_eqn, profile
+from geesibling.core.types import Graph, Node
+from geesibling.core.lib._graph import DataType
+from geesibling.tools import log
 import ml_dtypes
 import numpy as np
 
@@ -227,7 +227,7 @@ def process_outputs(outvars, context: ConvertContext):
 
 def jaxpr2graph(jaxpr: jcore.ClosedJaxpr):
     """
-    convert jax to framework graph
+    convert jax to geesibling graph
     Args:
         jaxpr: a ClosedJaxpr that will be converted
     """

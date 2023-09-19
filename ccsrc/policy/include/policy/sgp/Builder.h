@@ -5,7 +5,7 @@
 
 #define MATH_DEFINES_DEFINED
 
-namespace framework {
+namespace geesibling {
 
 class Builder {
   public:
@@ -70,7 +70,7 @@ class Builder {
         return this->colocation_group[op];
     }
 
-    void AddEdges(const std::shared_ptr<framework::NodeBase>& node) {
+    void AddEdges(const std::shared_ptr<geesibling::NodeBase>& node) {
         for (auto input : node->Inputs()) {
             auto view = input | ranges::views::split(':') | ranges::to<std::vector<std::string>>();
             std::string index = "0";
@@ -81,7 +81,7 @@ class Builder {
             if (result.has_value()) {
                 std::int64_t comm_cost = 1;
                 auto inputport = result.value();
-                framework::shape_t shape = inputport.entity.tensor.shape;
+                geesibling::shape_t shape = inputport.entity.tensor.shape;
                 comm_cost = std::accumulate(shape.begin(), shape.end(), static_cast<int64_t>(1), std::multiplies<>());
                 comm_cost *= 4;
                 if (shape.empty()) {
@@ -144,4 +144,4 @@ class Builder {
         }
     }
 };
-}  // namespace framework
+}  // namespace geesibling

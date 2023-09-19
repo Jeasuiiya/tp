@@ -6,12 +6,12 @@
 #ifndef ADAPTERS_TENSORFLOW_RPC_RPC_UTIL_H
 #define ADAPTERS_TENSORFLOW_RPC_RPC_UTIL_H
 
-namespace framework {
+namespace geesibling {
 
-std::map<std::string, std::string> GetDeviceMapFromMessage(framework::rpc::Graph const& graph);
+std::map<std::string, std::string> GetDeviceMapFromMessage(geesibling::rpc::Graph const& graph);
 
-framework::rpc::Graph ConvertGraphToMessage(framework::Graph& graph);
+geesibling::rpc::Graph ConvertGraphToMessage(geesibling::Graph& graph);
 
-framework::Graph ConvertMessageToGraph(const framework::rpc::Graph& graph);
-}  // namespace framework
+geesibling::Graph ConvertMessageToGraph(const geesibling::rpc::Graph& graph);
+}  // namespace geesibling
 #endif

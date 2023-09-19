@@ -5,7 +5,7 @@
 #include "string"
 #include "vector"
 
-namespace framework {
+namespace geesibling {
 // 定义栈
 struct Stack {
     std::vector<std::string> Sacklist;
@@ -64,4 +64,4 @@ static std::vector<std::string> TopoLogical(Graph& graph) {
 
     return topo_list;
 }
-}  // namespace framework
+}  // namespace geesibling

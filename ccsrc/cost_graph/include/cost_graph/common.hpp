@@ -2,10 +2,10 @@
 #include "DistributedIR/node.hpp"
 #include "cost_graph/cost_graph.hpp"
 
-#ifndef FRAMEWORK_COST_GRAPH_COMMON_HPP
-#define FRAMEWORK_COST_GRAPH_COMMON_HPP
+#ifndef GEESIBLING_COST_GRAPH_COMMON_HPP
+#define GEESIBLING_COST_GRAPH_COMMON_HPP
 
-namespace framework {
+namespace geesibling {
 inline CostGraph ConvertGraphToCostGraph(Graph graph) {
     const std::vector<NodePtr>& graph_nodes = graph.Nodes();
 
@@ -49,6 +49,6 @@ inline CostGraph ConvertMergedCostGraphToCostGraph(MergedCostGraph merged_cost_g
     CostGraph cost_graph(cost_nodes, cost_node_map);
     return cost_graph;
 }
-}  // namespace framework
+}  // namespace geesibling
 
 #endif

@@ -1,7 +1,7 @@
 #pragma once
 
-#ifndef FRAMEWORK_IR_TENSOR_H
-#define FRAMEWORK_IR_TENSOR_H
+#ifndef GEESIBLING_IR_TENSOR_H
+#define GEESIBLING_IR_TENSOR_H
 
 #include <cstdint>
 #include <numeric>
@@ -10,7 +10,7 @@
 #include "common/error.hpp"
 #include "common/fmt.hpp"
 #include "common/result_macro.hpp"
-namespace framework {
+namespace geesibling {
 
 /**
  * DataType
@@ -41,7 +41,7 @@ enum class DataType {
 };
 using shape_t = std::vector<ssize_t>;
 struct AbstractTensor {
-    friend struct fmt::formatter<framework::AbstractTensor>;
+    friend struct fmt::formatter<geesibling::AbstractTensor>;
 
     //   protected:
     DataType dtype;
@@ -131,62 +131,62 @@ struct AbstractTensor {
     }
 };
 
-}  // namespace framework
+}  // namespace geesibling
 
 // NOLINTBEGIN(readability-identifier-naming)
 template <>
-struct fmt::formatter<framework::DataType> {
+struct fmt::formatter<geesibling::DataType> {
     static constexpr auto parse(format_parse_context& ctx) -> decltype(ctx.begin()) {
         return ctx.end();
     }
 
     template <typename FormatContext>
-    auto format(const framework::DataType& t, FormatContext& ctx) const -> decltype(ctx.out()) {
+    auto format(const geesibling::DataType& t, FormatContext& ctx) const -> decltype(ctx.out()) {
         std::string s;
         switch (t) {
-            case framework::DataType::BOOL:
+            case geesibling::DataType::BOOL:
                 s = "BOOL";
                 break;
-            case framework::DataType::U8:
+            case geesibling::DataType::U8:
                 s = "U8";
                 break;
-            case framework::DataType::I8:
+            case geesibling::DataType::I8:
                 s = "I8";
                 break;
-            case framework::DataType::U16:
+            case geesibling::DataType::U16:
                 s = "U16";
                 break;
-            case framework::DataType::I16:
+            case geesibling::DataType::I16:
                 s = "I16";
                 break;
-            case framework::DataType::U32:
+            case geesibling::DataType::U32:
                 s = "U32";
                 break;
-            case framework::DataType::I32:
+            case geesibling::DataType::I32:
                 s = "I32";
                 break;
-            case framework::DataType::U64:
+            case geesibling::DataType::U64:
                 s = "U64";
                 break;
-            case framework::DataType::I64:
+            case geesibling::DataType::I64:
                 s = "I64";
                 break;
-            case framework::DataType::F8E4M3FN:
+            case geesibling::DataType::F8E4M3FN:
                 s = "F8E4M3FN";
                 break;
-            case framework::DataType::F8E5M2:
+            case geesibling::DataType::F8E5M2:
                 s = "F8E5M2";
                 break;
-            case framework::DataType::BF16:
+            case geesibling::DataType::BF16:
                 s = "BF16";
                 break;
-            case framework::DataType::F16:
+            case geesibling::DataType::F16:
                 s = "F16";
                 break;
-            case framework::DataType::F32:
+            case geesibling::DataType::F32:
                 s = "F32";
                 break;
-            case framework::DataType::F64:
+            case geesibling::DataType::F64:
                 s = "F64";
                 break;
             default:
@@ -196,9 +196,9 @@ struct fmt::formatter<framework::DataType> {
     }
 };
 template <>
-struct fmt::formatter<framework::AbstractTensor> : fmt::formatter<ShortFormat> {
+struct fmt::formatter<geesibling::AbstractTensor> : fmt::formatter<ShortFormat> {
     template <typename FormatContext>
-    auto format(const framework::AbstractTensor& t, FormatContext& ctx) const -> decltype(ctx.out()) {
+    auto format(const geesibling::AbstractTensor& t, FormatContext& ctx) const -> decltype(ctx.out()) {
         return fmt::format_to(ctx.out(), "AbstractTensor(dtype={}, shape={})", t.dtype, t.shape);
     }
 };

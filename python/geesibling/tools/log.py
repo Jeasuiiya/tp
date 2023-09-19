@@ -46,10 +46,10 @@ class ColorFormatter(logging.Formatter):
         return formatter.format(record)
 
 
-LOG_LEVEL = os.getenv("FRAMEWORK_LOG_LEVEL")
+LOG_LEVEL = os.getenv("GEESIBLING_LOG_LEVEL")
 ch = logging.StreamHandler()
 ch.setFormatter(ColorFormatter())
-logger = logging.getLogger("framework")
+logger = logging.getLogger("geesibling")
 try:
     level = LOG_LEVEL.upper() if LOG_LEVEL else logging.INFO
     logger.setLevel(level)

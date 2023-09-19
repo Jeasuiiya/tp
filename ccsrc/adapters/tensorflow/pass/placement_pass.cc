@@ -24,16 +24,16 @@
 #include "tensorflow/tsl/platform/status.h"
 
 namespace tensorflow {
-std::map<std::string, framework::DataType> type_map = {{"int32", framework::DataType::I32},
-                                                       {"float32", framework::DataType::F32},
-                                                       {"float32_ref", framework::DataType::F32}};
-void CalculateMemory(std::shared_ptr<framework::NodeBase> node) {
+std::map<std::string, geesibling::DataType> type_map = {{"int32", geesibling::DataType::I32},
+                                                        {"float32", geesibling::DataType::F32},
+                                                        {"float32_ref", geesibling::DataType::F32}};
+void CalculateMemory(std::shared_ptr<geesibling::NodeBase> node) {
     // 输入数据大小
     std::int64_t input_total_size = 1;
     std::int64_t output_total_size = 1;
     for (auto inputport : node->InputPorts()) {
         std::int64_t input_size = 1;
-        framework::shape_t shape = inputport.entity.tensor.shape;
+        geesibling::shape_t shape = inputport.entity.tensor.shape;
         input_size = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<int>());
         input_size *= 4;
         input_total_size += input_size;
@@ -42,7 +42,7 @@ void CalculateMemory(std::shared_ptr<framework::NodeBase> node) {
     // 输出数据大小
     for (auto outputport : node->OutputPorts()) {
         std::int64_t output_size = 1;
-        framework::shape_t shape = outputport.entity.shape;
+        geesibling::shape_t shape = outputport.entity.shape;
         output_size = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<int>());
         output_size *= 4;
         output_total_size += output_size;
@@ -52,7 +52,7 @@ void CalculateMemory(std::shared_ptr<framework::NodeBase> node) {
     node->PersistentMemory(sizeof(*node));
 }
 
-void CalculateCost(std::shared_ptr<framework::NodeBase> node) {
+void CalculateCost(std::shared_ptr<geesibling::NodeBase> node) {
     std::int64_t compute_cost = ceil(
         0.2
         * ceil((node->InputMemory() + node->OutputMemory())
@@ -152,13 +152,13 @@ void SetDevice(Graph& g, std::map<std::string, std::string> node_to_device) {
 }
 
 // cppcheck-suppress constParameterReference
-std::map<std::string, std::string> GetDeviceMapFromCostNodes(std::vector<framework::CostNode>& nodes) {
+std::map<std::string, std::string> GetDeviceMapFromCostNodes(std::vector<geesibling::CostNode>& nodes) {
     return nodes | ranges::views::transform([](auto& a) { return std::make_pair(a.GetName(), a.GetDevice()); })
            | ranges::to<std::map<std::string, std::string>>();
 }
 
-framework::Graph ConvertGraphDefToGraph(const GraphDef& graph_def) {
-    framework::Graph graph;
+geesibling::Graph ConvertGraphDefToGraph(const GraphDef& graph_def) {
+    geesibling::Graph graph;
     auto context = ConvertContext(graph_def);
     Json::Reader reader;
     Json::Value root;
@@ -167,7 +167,7 @@ framework::Graph ConvertGraphDefToGraph(const GraphDef& graph_def) {
     reader.parse(is, root);
     for (const auto& node_def : graph_def.node()) {
         auto jsonnode = root[node_def.name()];
-        framework::NodeBase node;
+        geesibling::NodeBase node;
         node.Attrs().insert(
             std::pair<std::string, std::string>("colocation_group", jsonnode["colocation_group"].asString()));
         node.Name(node_def.name());
@@ -181,8 +181,8 @@ framework::Graph ConvertGraphDefToGraph(const GraphDef& graph_def) {
                 index = view[1];
             }
             std::string input_node = view[0];
-            framework::shape_t shape;
-            framework::DataType dtype;
+            geesibling::shape_t shape;
+            geesibling::DataType dtype;
             int indexi = std::stoi(index);
             if (input_node.rfind('^', 0) == 0) {
                 input_node = input_node.substr(1);
@@ -198,8 +198,8 @@ framework::Graph ConvertGraphDefToGraph(const GraphDef& graph_def) {
                               | ranges::actions::sort([](const auto& a, const auto& b) { return a.second < b.second; });
         for (const auto& i : sorted_outputs) {
             node.AddOutput(i.first->name());
-            framework::shape_t shape;
-            framework::DataType dtype;
+            geesibling::shape_t shape;
+            geesibling::DataType dtype;
             const auto& outputshape = jsonnode["outputs"][std::to_string(i.second)]["shape"];
             std::transform(outputshape.begin(), outputshape.end(), std::back_inserter(shape),
                            [](const auto& dim) { return dim.asInt(); });
@@ -232,13 +232,13 @@ Status PlacementPass::Run(const GraphOptimizationPassOptions& options) {
     }
 
     if (policy == PolicyType::FdDps) {
-        std::vector<framework::Device> devices;
+        std::vector<geesibling::Device> devices;
         for (auto* i : options.device_set->devices()) {
             auto memory = i->attributes().memory_limit();
-            devices.emplace_back(framework::DeviceTypeFrom(i->device_type()), i->name(), memory, memory, 0);
+            devices.emplace_back(geesibling::DeviceTypeFrom(i->device_type()), i->name(), memory, memory, 0);
         }
-        framework::CostGraph cost_graph = ConvertGraphToCostGraph(graph);
-        framework::FDDPSAlgorithm fddps_algorithm(cost_graph, devices);
+        geesibling::CostGraph cost_graph = ConvertGraphToCostGraph(graph);
+        geesibling::FDDPSAlgorithm fddps_algorithm(cost_graph, devices);
         auto r = fddps_algorithm.Placement();
         if (r.has_error()) {
             SPDLOG_INFO("call fddps error. {}", r.error().text);
@@ -246,14 +246,14 @@ Status PlacementPass::Run(const GraphOptimizationPassOptions& options) {
         }
         device_map = GetDeviceMapFromCostNodes(r.value());
     } else if (policy == PolicyType::SGP) {
-        std::vector<framework::Device> devices;
+        std::vector<geesibling::Device> devices;
         for (auto* i : options.device_set->devices()) {
             auto memory = i->attributes().memory_limit();
             if (i->device_type() != "CPU") {
-                devices.emplace_back(framework::DeviceTypeFrom(i->device_type()), i->name(), memory, memory, 0);
+                devices.emplace_back(geesibling::DeviceTypeFrom(i->device_type()), i->name(), memory, memory, 0);
             }
         }
-        framework::Partition Partition(graph, GetDeviceNum(), devices, GetFactor(), GetOOM());
+        geesibling::Partition Partition(graph, GetDeviceNum(), devices, GetFactor(), GetOOM());
         device_map = Partition.op_group;
     }
 

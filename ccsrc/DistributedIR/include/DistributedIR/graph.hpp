@@ -1,5 +1,5 @@
-#ifndef FRAMEWORK_GRAPH_GRAPH_H
-#define FRAMEWORK_GRAPH_GRAPH_H
+#ifndef GEESIBLING_GRAPH_GRAPH_H
+#define GEESIBLING_GRAPH_GRAPH_H
 
 #include <memory>
 #include <string>
@@ -12,7 +12,7 @@
 #include "fmt/format.h"
 #include "fmt/ranges.h"
 #include "node.hpp"
-namespace framework {
+namespace geesibling {
 class SubGraph;
 using SubGraphPtr = std::shared_ptr<SubGraph>;
 using SubGraphWeakPtr = std::weak_ptr<SubGraph>;
@@ -144,26 +144,26 @@ class SubGraph : public Graph {
     DECL_GETTER(GetOutputGraphs, output_graphs)
 };
 
-}  // namespace framework
+}  // namespace geesibling
 
 // NOLINTBEGIN(readability-identifier-naming)
 template <>
-struct fmt::formatter<framework::Graph> {
+struct fmt::formatter<geesibling::Graph> {
     static constexpr auto parse(format_parse_context& ctx) -> decltype(ctx.begin()) {
         return ctx.end();
     }
 
     template <typename FormatContext>
-    auto format(const framework::Graph& g, FormatContext& ctx) const -> decltype(ctx.out()) {
+    auto format(const geesibling::Graph& g, FormatContext& ctx) const -> decltype(ctx.out()) {
         auto nodes = g.nodes | ranges::views::transform([](const auto& i) { return fmt_shared(i); });
         return fmt::format_to(ctx.out(), "Graph(nodes={}, outputs={})", nodes, g.returns);
     }
 };
 
 template <>
-struct fmt::formatter<framework::SubGraph> : public fmt::formatter<ShortFormat> {
+struct fmt::formatter<geesibling::SubGraph> : public fmt::formatter<ShortFormat> {
     template <typename FormatContext>
-    auto format(const framework::SubGraph& g, FormatContext& ctx) const -> decltype(ctx.out()) {
+    auto format(const geesibling::SubGraph& g, FormatContext& ctx) const -> decltype(ctx.out()) {
         auto nodes = g.nodes | ranges::views::transform([](const auto& i) { return fmt_shared(i); });
         {
             if (presentation == 's') {

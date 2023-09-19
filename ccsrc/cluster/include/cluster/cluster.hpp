@@ -1,11 +1,11 @@
 #pragma once
-#ifndef _FRAMEWORK_CLUSTER_CLUSTER_H
-#define _FRAMEWORK_CLUSTER_CLUSTER_H
+#ifndef _GEESIBLING_CLUSTER_CLUSTER_H
+#define _GEESIBLING_CLUSTER_CLUSTER_H
 
 #include <vector>
 
 #include "server.hpp"
-namespace framework {
+namespace geesibling {
 
 class Cluster {
     std::vector<Server> servers;  // 服务器
@@ -14,6 +14,6 @@ class Cluster {
     long usedMemory;              // 集群已使用内存
 };
 
-};  // namespace framework
+};  // namespace geesibling
 
 #endif

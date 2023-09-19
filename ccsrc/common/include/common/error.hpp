@@ -1,5 +1,5 @@
-#ifndef FRAMEWORK_ERROR_HPP
-#define FRAMEWORK_ERROR_HPP
+#ifndef GEESIBLING_ERROR_HPP
+#define GEESIBLING_ERROR_HPP
 #include <string>
 enum class Kind { Unknown, Invalid, Unimplemented, Internal };
 struct Error {

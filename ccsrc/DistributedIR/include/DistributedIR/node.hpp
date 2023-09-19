@@ -1,5 +1,5 @@
-#ifndef FRAMEWORK_GRAPH_NODE_H
-#define FRAMEWORK_GRAPH_NODE_H
+#ifndef GEESIBLING_GRAPH_NODE_H
+#define GEESIBLING_GRAPH_NODE_H
 
 #include <algorithm>
 #include <map>
@@ -23,7 +23,7 @@
 #include "range/v3/all.hpp"
 #include "result.hpp"
 
-namespace framework {
+namespace geesibling {
 
 class NodeBase;
 using NodePtr = std::shared_ptr<NodeBase>;
@@ -178,17 +178,17 @@ class MergedNode : public NodeBase {
     std::vector<NodeBase> merged_nodes;  // 已合并节点
 };
 
-}  // namespace framework
+}  // namespace geesibling
 
 // NOLINTBEGIN(readability-identifier-naming)
 template <>
-struct fmt::formatter<framework::NodeBase> {
+struct fmt::formatter<geesibling::NodeBase> {
     static constexpr auto parse(format_parse_context& ctx) -> decltype(ctx.begin()) {
         return ctx.end();
     }
 
     template <typename FormatContext>
-    auto format(const framework::NodeBase& n, FormatContext& ctx) const -> decltype(ctx.out()) {
+    auto format(const geesibling::NodeBase& n, FormatContext& ctx) const -> decltype(ctx.out()) {
         return fmt::format_to(
             ctx.out(),
             "NodeBase(name={}, op={}, device={}, inputs={}, outputs={}, input_ports={}, output_ports={}, attrs={})",

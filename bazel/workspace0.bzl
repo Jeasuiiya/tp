@@ -1,7 +1,7 @@
 load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository", "new_git_repository")
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
-def framework_workspace0():
+def geesibling_workspace0():
     git_repository(
         name = "fmt",
         tag = "9.1.0",

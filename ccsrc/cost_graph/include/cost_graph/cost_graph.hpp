@@ -6,10 +6,10 @@
 #include "DistributedIR/node.hpp"
 #include "common/util.hpp"
 
-#ifndef FRAMEWORK_COST_GRAPH_COST_GRAPH_HPP
-#define FRAMEWORK_COST_GRAPH_COST_GRAPH_HPP
+#ifndef GEESIBLING_COST_GRAPH_COST_GRAPH_HPP
+#define GEESIBLING_COST_GRAPH_COST_GRAPH_HPP
 
-namespace framework {
+namespace geesibling {
 
 // Edge
 class CostEdge {
@@ -152,5 +152,5 @@ class CostGraph {
     DECL_ACCESSOR(GetCostNodes, SetMergedCostNodes, cost_nodes, M)
     DECL_ACCESSOR(GetCostNodeMap, SetCostNodeMap, cost_node_map, M)
 };
-}  // namespace framework
+}  // namespace geesibling
 #endif

@@ -1,6 +1,6 @@
 #pragma once
-#ifndef FRAMEWORK_CLUSTER_SERVER_H
-#define FRAMEWORK_CLUSTER_SERVER_H
+#ifndef GEESIBLING_CLUSTER_SERVER_H
+#define GEESIBLING_CLUSTER_SERVER_H
 
 #include <string>
 #include <vector>
@@ -8,7 +8,7 @@
 #include "common/fmt.hpp"
 #include "common/util.hpp"
 
-namespace framework {
+namespace geesibling {
 enum class DeviceStatus {
     Using,  // 使用
     Idle    // 闲置
@@ -30,7 +30,7 @@ static inline DeviceType DeviceTypeFrom(const std::string& s) {
     return DeviceType::Cpu;
 }
 class Device {
-    friend struct fmt::formatter<framework::Device>;
+    friend struct fmt::formatter<geesibling::Device>;
 
   private:
     // DeviceStatus status;   // 设备使用状态
@@ -41,7 +41,7 @@ class Device {
     int64_t execute_time;  // 设备的执行时间
 
   public:
-    Device() : type(framework::DeviceType::Cpu), memory(0), free_memory(0), execute_time(0) {}
+    Device() : type(geesibling::DeviceType::Cpu), memory(0), free_memory(0), execute_time(0) {}
     Device(DeviceType _type, std::string _name, int64_t _memory, int64_t _free_memory, int64_t _execute_time)
         :  // : status(std::move(_status)),
           type(std::move(_type)),
@@ -75,13 +75,13 @@ class Device {
 //     std::vector<Link> links;      // 链接
 // };
 
-};  // namespace framework
+};  // namespace geesibling
 
 // NOLINTBEGIN(readability-identifier-naming)
 template <>
-struct fmt::formatter<framework::Device> : public fmt::formatter<ShortFormat> {
+struct fmt::formatter<geesibling::Device> : public fmt::formatter<ShortFormat> {
     template <typename FormatContext>
-    auto format(const framework::Device& d, FormatContext& ctx) const -> decltype(ctx.out()) {
+    auto format(const geesibling::Device& d, FormatContext& ctx) const -> decltype(ctx.out()) {
         return fmt::format_to(ctx.out(), "Device(name={}, memory={}, free_memory={}, execute_time={})", d.name,
                               d.memory, d.free_memory, d.execute_time);
     }

@@ -4,11 +4,11 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import jax
 import numpy as np
 from jax.tree_util import tree_flatten, tree_unflatten
-from framework.adapters.jax.jaxpr2graph import jaxpr2graph
-from framework.adapters.jax.block2jaxpr import block2jaxpr
-from framework.core.lib._graph import divide_graph, search_policy, Device
-from framework.adapters.jax.schedule import ScheduleContext
-from framework.tools import log
+from geesibling.adapters.jax.jaxpr2graph import jaxpr2graph
+from geesibling.adapters.jax.block2jaxpr import block2jaxpr
+from geesibling.core.lib._graph import divide_graph, search_policy, Device
+from geesibling.adapters.jax.schedule import ScheduleContext
+from geesibling.tools import log
 
 __doc__ = """
 parallelize api

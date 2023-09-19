@@ -23,11 +23,11 @@ py_binary(
     ]
 )
 
-FRAMEWORK_THIRD_COMMON_LIBS = ["@fmt", "@result", "@range-v3", "@spdlog//:spdlog_header_only"]
+GEESIBLING_THIRD_COMMON_LIBS = ["@fmt", "@result", "@range-v3", "@spdlog//:spdlog_header_only"]
 
 cc_library(
     name = "ThirdCommon",
-    deps = FRAMEWORK_THIRD_COMMON_LIBS,
+    deps = GEESIBLING_THIRD_COMMON_LIBS,
 )
 
 cc_library(

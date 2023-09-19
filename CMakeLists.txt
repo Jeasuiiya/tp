@@ -1,11 +1,11 @@
 cmake_minimum_required(VERSION 3.22)
 
 # provide args:
-# FRAMEWORK_BUILD_TEST
-# FRAMEWORK_ENABLE_BINDINGS_PYTHON
+# GEESIBLING_BUILD_TEST
+# GEESIBLING_ENABLE_BINDINGS_PYTHON
 # PYTHON_EXECUTABLE
 # CPM_SOURCE_CACHE
-project(framework CXX)
+project(GeeSibling CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 
@@ -31,7 +31,7 @@ endif()
 
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake ${PROJECT_SOURCE_DIR}/cmake/third_party)
 
-option(FRAMEWORK_BUILD_TEST "build test" ON)
+option(GEESIBLING_BUILD_TEST "build test" ON)
 
 # cmake -DPYBIND11_PYTHON_VERSION=3.6 ..
 
@@ -39,7 +39,7 @@ option(FRAMEWORK_BUILD_TEST "build test" ON)
 
 # # This often is a good way to get the current Python, works in environments:
 # cmake -DPYTHON_EXECUTABLE=$(python3 -c "import sys; print(sys.executable)") ..
-option(FRAMEWORK_ENABLE_BINDINGS_PYTHON "python bindings" ON)
+option(GEESIBLING_ENABLE_BINDINGS_PYTHON "python bindings" ON)
 
 # begin config set(CMAKE_MESSAGE_LOG_LEVEL TRACE)
 include(CPM)
@@ -61,19 +61,19 @@ fetch_range()
 fetch_spdlog()
 
 # third libraries as common denpendencies
-set(FRAMEWORK_THIRD_COMMON_LIBS "")
-list(APPEND FRAMEWORK_THIRD_COMMON_LIBS Result::Result)
-list(APPEND FRAMEWORK_THIRD_COMMON_LIBS fmt::fmt)
-list(APPEND FRAMEWORK_THIRD_COMMON_LIBS range-v3)
-list(APPEND FRAMEWORK_THIRD_COMMON_LIBS spdlog::spdlog_header_only)
+set(GEESIBLING_THIRD_COMMON_LIBS "")
+list(APPEND GEESIBLING_THIRD_COMMON_LIBS Result::Result)
+list(APPEND GEESIBLING_THIRD_COMMON_LIBS fmt::fmt)
+list(APPEND GEESIBLING_THIRD_COMMON_LIBS range-v3)
+list(APPEND GEESIBLING_THIRD_COMMON_LIBS spdlog::spdlog_header_only)
 
 add_library(ThirdCommon INTERFACE)
-target_link_libraries(ThirdCommon INTERFACE ${FRAMEWORK_THIRD_COMMON_LIBS})
+target_link_libraries(ThirdCommon INTERFACE ${GEESIBLING_THIRD_COMMON_LIBS})
 
-if(FRAMEWORK_ENABLE_BINDINGS_PYTHON)
+if(GEESIBLING_ENABLE_BINDINGS_PYTHON)
   include(FetchPybind11)
   fetch_pybind11()
-  file(GLOB_RECURSE FRAMEWORK_PYTHON_SRCS ${CMAKE_CURRENT_SOURCE_DIR}/python/*.py)
+  file(GLOB_RECURSE GEESIBLING_PYTHON_SRCS ${CMAKE_CURRENT_SOURCE_DIR}/python/*.py)
   add_custom_target(
     python
     COMMENT "copy python sources"
@@ -81,16 +81,16 @@ if(FRAMEWORK_ENABLE_BINDINGS_PYTHON)
     COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_BINARY_DIR}/python"
     COMMAND ${CMAKE_COMMAND} -E copy_directory_if_different ${CMAKE_CURRENT_SOURCE_DIR}/python
             "${CMAKE_BINARY_DIR}/python"
-    DEPENDS ${FRAMEWORK_PYTHON_SRCS}
-    SOURCES ${FRAMEWORK_PYTHON_SRCS})
+    DEPENDS ${GEESIBLING_PYTHON_SRCS}
+    SOURCES ${GEESIBLING_PYTHON_SRCS})
 endif()
 
 add_subdirectory(ccsrc)
 
-if(FRAMEWORK_BUILD_TEST)
+if(GEESIBLING_BUILD_TEST)
   include(FetchGTest)
   set(INSTALL_GTEST OFF CACHE BOOL OFF FORCE)
   fetch_gtest()
   enable_testing()
   add_subdirectory(tests)
-endif(FRAMEWORK_BUILD_TEST)
+endif(GEESIBLING_BUILD_TEST)

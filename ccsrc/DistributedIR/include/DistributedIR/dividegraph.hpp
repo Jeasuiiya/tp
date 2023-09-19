@@ -1,5 +1,5 @@
-#ifndef FRAMEWORK_IR_DivideGraph_H
-#define FRAMEWORK_IR_DivideGraph_H
+#ifndef GEESIBLING_IR_DivideGraph_H
+#define GEESIBLING_IR_DivideGraph_H
 
 #include <algorithm>
 #include <cstddef>
@@ -17,7 +17,7 @@
 #include "graph.hpp"
 #include "node.hpp"
 
-namespace framework {
+namespace geesibling {
 
 using SimpleGraph = std::map<int, std::set<int>>;
 
@@ -267,6 +267,6 @@ cpp::result<std::map<int, SubGraphPtr>, Error> DivideGraph(Graph& graph);
 void DfsForCircle(std::pair<SimpleGraph, SimpleGraph>& simple_graph, int start, int target,
                   std::vector<std::vector<int>>* record, std::vector<int>* current, std::set<int>* visited);
 
-}  // namespace framework
+}  // namespace geesibling
 
 #endif

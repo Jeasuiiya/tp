@@ -19,7 +19,7 @@
 #include "range/v3/view/filter.hpp"
 #include "range/v3/view/transform.hpp"
 
-namespace framework {
+namespace geesibling {
 
 bool DivideGraphHelper::BfsSearchPrivousGraphOut(const std::string& before_node) {
     std::queue<std::string> before_node_queue;
@@ -687,4 +687,4 @@ cpp::result<std::map<int, SubGraphPtr>, Error> DivideGraph(Graph& graph) {
     return sub_graph;
 }
 
-}  // namespace framework
+}  // namespace geesibling

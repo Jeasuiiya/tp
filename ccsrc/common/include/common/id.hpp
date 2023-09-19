@@ -1,11 +1,11 @@
 #pragma once
 #include <functional>
-#ifndef FRAMEWORK_COMMON_ID_HPP
-#define FRAMEWORK_COMMON_ID_HPP
+#ifndef GEESIBLING_COMMON_ID_HPP
+#define GEESIBLING_COMMON_ID_HPP
 #include <cstdint>
 #include <ctime>
 
-namespace framework {
+namespace geesibling {
 
 namespace details {
 
@@ -29,6 +29,6 @@ class IDGenerator {
 static details::IDGenerator IDGenerator;
 // NOLINTEND
 
-}  // namespace framework
+}  // namespace geesibling
 
 #endif

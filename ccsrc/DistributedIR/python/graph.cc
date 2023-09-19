@@ -24,27 +24,27 @@
 #define STRINGIFY(x) #x
 #define MACRO_STRINGIFY(x) STRINGIFY(x)
 
-namespace framework::py {
+namespace geesibling::py {
 
 class Node {
   private:
-    std::shared_ptr<framework::NodeBase> node_ptr;
+    std::shared_ptr<geesibling::NodeBase> node_ptr;
 
   public:
-    explicit Node(const framework::NodeBase& node) {
-        node_ptr = std::make_shared<framework::NodeBase>(node);
+    explicit Node(const geesibling::NodeBase& node) {
+        node_ptr = std::make_shared<geesibling::NodeBase>(node);
     }
-    explicit Node(std::shared_ptr<framework::NodeBase> node) {
+    explicit Node(std::shared_ptr<geesibling::NodeBase> node) {
         node_ptr = std::move(node);
     }
     Node(const Node& node) {
         node_ptr = node.node_ptr;
     }
     Node() {
-        node_ptr = std::make_shared<framework::NodeBase>();
+        node_ptr = std::make_shared<geesibling::NodeBase>();
     }
     ~Node() = default;
-    std::shared_ptr<framework::NodeBase>& NodePtr() {
+    std::shared_ptr<geesibling::NodeBase>& NodePtr() {
         return this->node_ptr;
     }
     DECL_ACCESSOR_PROXY_S(SetName, GetName, std::string, node_ptr, Name, M)
@@ -175,22 +175,22 @@ class Node {
 };
 class Graph {
   private:
-    framework::Graph* graph_ptr;
+    geesibling::Graph* graph_ptr;
 
   public:
-    explicit Graph(framework::Graph* graph) {
+    explicit Graph(geesibling::Graph* graph) {
         graph_ptr = graph;
     }
     Graph(Graph&& graph) noexcept {
         graph_ptr = graph.graph_ptr;
     }
     Graph() {
-        graph_ptr = new framework::Graph();
+        graph_ptr = new geesibling::Graph();
     }
     ~Graph() {
         delete graph_ptr;
     }
-    framework::Graph* GraphPtr() {
+    geesibling::Graph* GraphPtr() {
         return graph_ptr;
     }
     void AddNode(Node& node) {
@@ -235,16 +235,16 @@ class Graph {
 };
 class SubGraph {
   private:
-    std::shared_ptr<framework::SubGraph> subgraph_ptr;
+    std::shared_ptr<geesibling::SubGraph> subgraph_ptr;
 
   public:
-    explicit SubGraph(framework::SubGraph& subgraph) {
-        subgraph_ptr = std::make_shared<framework::SubGraph>(subgraph);
+    explicit SubGraph(geesibling::SubGraph& subgraph) {
+        subgraph_ptr = std::make_shared<geesibling::SubGraph>(subgraph);
     }
-    explicit SubGraph(framework::SubGraphPtr subgraph) {
+    explicit SubGraph(geesibling::SubGraphPtr subgraph) {
         subgraph_ptr = std::move(subgraph);
     }
-    std::shared_ptr<framework::SubGraph>& SubGraphPtr() {
+    std::shared_ptr<geesibling::SubGraph>& SubGraphPtr() {
         return this->subgraph_ptr;
     }
     pybind11::object GetNode(int at, bool error = false) {
@@ -279,13 +279,13 @@ class SubGraph {
     ~SubGraph() = default;
 };
 
-};  // namespace framework::py
+};  // namespace geesibling::py
 
 namespace py = pybind11;
-using PyNode = framework::py::Node;
-using PyGraph = framework::py::Graph;
-using PySubGraph = framework::py::SubGraph;
-std::map<std::string, std::string> GetDeviceMapFromCostNodes(std::vector<framework::CostNode>& nodes) {
+using PyNode = geesibling::py::Node;
+using PyGraph = geesibling::py::Graph;
+using PySubGraph = geesibling::py::SubGraph;
+std::map<std::string, std::string> GetDeviceMapFromCostNodes(std::vector<geesibling::CostNode>& nodes) {
     return nodes | ranges::views::transform([](auto& a) { return std::make_pair(a.GetName(), a.GetDevice()); })
            | ranges::to<std::map<std::string, std::string>>();
 }
@@ -296,23 +296,23 @@ PYBIND11_MODULE(PYBIND11_CURRENT_MODULE_NAME, m) {
         .. currentmodule:: _graph
     )pbdoc";
 
-    py::enum_<framework::DataType>(m, "DataType")
-        .value("BOOL", framework::DataType::BOOL)
-        .value("U8", framework::DataType::U8)
-        .value("I8", framework::DataType::I8)
-        .value("U16", framework::DataType::U16)
-        .value("I16", framework::DataType::I16)
-        .value("U32", framework::DataType::U32)
-        .value("I32", framework::DataType::I32)
-        .value("U64", framework::DataType::U64)
-        .value("I64", framework::DataType::I64)
-        .value("F8E4M3FN", framework::DataType::F8E4M3FN)
-        .value("F8E5M2", framework::DataType::F8E5M2)
-        .value("BF16", framework::DataType::BF16)
-        .value("F16", framework::DataType::F16)
-        .value("F32", framework::DataType::F32)
-        .value("F64", framework::DataType::F64)
-        .value("Other", framework::DataType::Other);
+    py::enum_<geesibling::DataType>(m, "DataType")
+        .value("BOOL", geesibling::DataType::BOOL)
+        .value("U8", geesibling::DataType::U8)
+        .value("I8", geesibling::DataType::I8)
+        .value("U16", geesibling::DataType::U16)
+        .value("I16", geesibling::DataType::I16)
+        .value("U32", geesibling::DataType::U32)
+        .value("I32", geesibling::DataType::I32)
+        .value("U64", geesibling::DataType::U64)
+        .value("I64", geesibling::DataType::I64)
+        .value("F8E4M3FN", geesibling::DataType::F8E4M3FN)
+        .value("F8E5M2", geesibling::DataType::F8E5M2)
+        .value("BF16", geesibling::DataType::BF16)
+        .value("F16", geesibling::DataType::F16)
+        .value("F32", geesibling::DataType::F32)
+        .value("F64", geesibling::DataType::F64)
+        .value("Other", geesibling::DataType::Other);
 
     py::class_<PyNode>(m, "Node")
         .def(py::init())
@@ -385,7 +385,7 @@ PYBIND11_MODULE(PYBIND11_CURRENT_MODULE_NAME, m) {
             "input_graphs",
             [](PySubGraph& g) {
                 auto& a = g.SubGraphPtr()->GetInputGraphs();
-                return a | ranges::views::transform([](framework::SubGraphPtr& i) { return PySubGraph(i); })
+                return a | ranges::views::transform([](geesibling::SubGraphPtr& i) { return PySubGraph(i); })
                        | ranges::to_vector;
             })
         .def_property_readonly("output_graphs",
@@ -404,22 +404,22 @@ PYBIND11_MODULE(PYBIND11_CURRENT_MODULE_NAME, m) {
                                })
         .def("__str__", &PySubGraph::ToString)
         .def("__repr__", [](PySubGraph& g) { return fmt::format("{:s}", fmt_shared(g.SubGraphPtr())); })
-        .def("__hash__", [](PySubGraph& g) { return std::hash<framework::SubGraphPtr>()(g.SubGraphPtr()); })
+        .def("__hash__", [](PySubGraph& g) { return std::hash<geesibling::SubGraphPtr>()(g.SubGraphPtr()); })
         .def("__eq__",
              [](PySubGraph& g, PySubGraph& other) { return g.SubGraphPtr().get() == other.SubGraphPtr().get(); });
-    using PyBlock = framework::Block;
+    using PyBlock = geesibling::Block;
     py::class_<PyBlock>(m, "Block")
-        .def(py::init([](const std::string& device) { return framework::Block(device); }))
-        .def(py::init([](PySubGraph& graph) { return framework::Block(graph.SubGraphPtr()); }))
+        .def(py::init([](const std::string& device) { return geesibling::Block(device); }))
+        .def(py::init([](PySubGraph& graph) { return geesibling::Block(graph.SubGraphPtr()); }))
         .def_property_readonly("id", [](PyBlock& b) { return b.Id(); })
         .def_property_readonly("device", [](PyBlock& b) { return b.Device(); })
         .def("__str__", [](PyBlock& b) { return fmt::to_string(b); })
         .def("__repr__", [](PyBlock& b) { return fmt::format("{:s}", b); })
         .def_property_readonly("graph", [](PyBlock& b) { return PySubGraph(b.GetSubGraph()); })
-        .def("add_inputport", [](PyBlock& b, int64_t blockId, int index, framework::DataType dtype,
-                                 framework::shape_t& shape) { b.AddInputPort(blockId, index, dtype, shape); })
+        .def("add_inputport", [](PyBlock& b, int64_t blockId, int index, geesibling::DataType dtype,
+                                 geesibling::shape_t& shape) { b.AddInputPort(blockId, index, dtype, shape); })
         .def("add_outputport",
-             [](PyBlock& b, framework::DataType dtype, framework::shape_t& shape) { b.AddOutputPort(dtype, shape); })
+             [](PyBlock& b, geesibling::DataType dtype, geesibling::shape_t& shape) { b.AddOutputPort(dtype, shape); })
         .def_property_readonly("inputports",
                                [](PyBlock& block) {
                                    return block.Inputs() | ranges::views::transform([](auto& i) {
@@ -439,21 +439,21 @@ PYBIND11_MODULE(PYBIND11_CURRENT_MODULE_NAME, m) {
         .def_property_readonly("outputports_size", [](PyBlock& block) { return block.Outputs().size(); })
         .def("__hash__", [](PyBlock& block) { return block.Id(); })
         .def("__eq__", [](PyBlock& block, PyBlock& other) { return block.Id() == other.Id(); });
-    py::enum_<framework::DeviceType>(m, "DeviceType")
-        .value("cpu", framework::DeviceType::Cpu)
-        .value("gpu", framework::DeviceType::NVGpu)
-        .value("rocm", framework::DeviceType::AMDGpu)
-        .value("ascend", framework::DeviceType::Ascend);
-    using PyDevice = framework::Device;
+    py::enum_<geesibling::DeviceType>(m, "DeviceType")
+        .value("cpu", geesibling::DeviceType::Cpu)
+        .value("gpu", geesibling::DeviceType::NVGpu)
+        .value("rocm", geesibling::DeviceType::AMDGpu)
+        .value("ascend", geesibling::DeviceType::Ascend);
+    using PyDevice = geesibling::Device;
     py::class_<PyDevice>(m, "Device")
         .def(py::init(
-            [](framework::DeviceType type, std::string name, int64_t memory, int64_t free_memory,
+            [](geesibling::DeviceType type, std::string name, int64_t memory, int64_t free_memory,
                int64_t execute_time) { return PyDevice(type, std::move(name), memory, free_memory, execute_time); }))
         .def("__str__", [](PyDevice& b) { return fmt::to_string(b); })
         .def("__repr__", [](PyDevice& b) { return fmt::to_string(b); });
 
     m.def("divide_graph", [](PyGraph& graph) {
-        auto r = framework::DivideGraph(*graph.GraphPtr());
+        auto r = geesibling::DivideGraph(*graph.GraphPtr());
         if (r.has_error()) {
             throw std::runtime_error(r.error().text);
         }
@@ -465,8 +465,8 @@ PYBIND11_MODULE(PYBIND11_CURRENT_MODULE_NAME, m) {
               SPDLOG_DEBUG("devices:{}", devices);
               SPDLOG_DEBUG("policy:{}", policy);
               if (policy == "fddps") {
-                  framework::CostGraph cost_graph = framework::ConvertGraphToCostGraph(*graph.GraphPtr());
-                  framework::FDDPSAlgorithm fddps_algorithm(cost_graph, std::move(devices));
+                  geesibling::CostGraph cost_graph = geesibling::ConvertGraphToCostGraph(*graph.GraphPtr());
+                  geesibling::FDDPSAlgorithm fddps_algorithm(cost_graph, std::move(devices));
                   auto r = fddps_algorithm.Placement();
                   if (r.has_error()) {
                       SPDLOG_ERROR("call fddps error. {}", r.error().text);
@@ -476,7 +476,7 @@ PYBIND11_MODULE(PYBIND11_CURRENT_MODULE_NAME, m) {
                   return pybind11::cast(device_map);
               }
               if (policy == "sgp") {
-                  framework::Partition partition(*graph.GraphPtr(), devices.size(), devices, 0.6, 1);
+                  geesibling::Partition partition(*graph.GraphPtr(), devices.size(), devices, 0.6, 1);
                   auto& device_map = partition.op_group;
                   SPDLOG_DEBUG("sgp result:{}", device_map);
                   return pybind11::cast(device_map);

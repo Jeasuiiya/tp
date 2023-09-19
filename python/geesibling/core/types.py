@@ -2,7 +2,7 @@
 wrapper block
 """
 from collections import namedtuple
-from framework.core.lib._graph import Block as RawBlock, Graph as RawGraph, Node as RawNode, SubGraph as RawSubGraph
+from geesibling.core.lib._graph import Block as RawBlock, Graph as RawGraph, Node as RawNode, SubGraph as RawSubGraph
 
 NodeName = str
 BlockId = int

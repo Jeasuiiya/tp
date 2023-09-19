@@ -1,11 +1,11 @@
 #pragma once
 
-#ifndef FRAMEWORK_IR_INPUT_H
-#define FRAMEWORK_IR_INPUT_H
+#ifndef GEESIBLING_IR_INPUT_H
+#define GEESIBLING_IR_INPUT_H
 #include <cstdint>
 
 #include "DistributedIR/tensor.hpp"
-namespace framework {
+namespace geesibling {
 
 template <class T>
 struct Input {
@@ -33,13 +33,13 @@ struct Input {
 };
 using InputStr = Input<std::string>;
 
-}  // namespace framework
+}  // namespace geesibling
 
 // NOLINTBEGIN
 template <class T>
-struct fmt::formatter<framework::Input<T>> : public fmt::formatter<ShortFormat> {
+struct fmt::formatter<geesibling::Input<T>> : public fmt::formatter<ShortFormat> {
     template <typename FormatContext>
-    auto format(const framework::Input<T>& input, FormatContext& ctx) const -> decltype(ctx.out()) {
+    auto format(const geesibling::Input<T>& input, FormatContext& ctx) const -> decltype(ctx.out()) {
         return fmt::format_to(ctx.out(), "Input(ref={}, tensor={})", input.Ref(), input.tensor);
     }
 };

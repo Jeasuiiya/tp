@@ -4,10 +4,10 @@
 #include "Builder.h"
 #include "cluster/server.hpp"
 
-#ifndef FRAMEWORK_SGD_ALGORITHM_H
-#define FRAMEWORK_SGD_ALGORITHM_H
+#ifndef GEESIBLING_SGD_ALGORITHM_H
+#define GEESIBLING_SGD_ALGORITHM_H
 
-namespace framework {
+namespace geesibling {
 
 class Partition {
   public:
@@ -28,6 +28,6 @@ class Partition {
     void AdjustV2(Graph& graph, std::int64_t max_iterations, float target_factor,
                   std::map<int64_t, std::string> id_device_map);
 };
-}  // namespace framework
+}  // namespace geesibling
 
 #endif

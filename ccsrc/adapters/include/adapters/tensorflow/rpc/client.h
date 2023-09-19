@@ -12,14 +12,14 @@
 #include "result.hpp"
 #ifndef ADAPTERS_TENSORFLOW_RPC_CLIENT_H
 #define ADAPTERS_TENSORFLOW_RPC_CLIENT_H
-using framework::rpc::CallRequest;
-using framework::rpc::CallResponse;
-using framework::rpc::RpcService;
-using RpcGraph = framework::rpc::Graph;
+using geesibling::rpc::CallRequest;
+using geesibling::rpc::CallResponse;
+using geesibling::rpc::RpcService;
+using RpcGraph = geesibling::rpc::Graph;
 using grpc::Channel;
 using grpc::ClientContext;
 using grpc::Status;
-namespace framework {
+namespace geesibling {
 
 /**
  * RpcServiceClient
@@ -38,5 +38,5 @@ class RpcServiceClient {
   private:
     std::unique_ptr<RpcService::Stub> stub_;
 };
-}  // namespace framework
+}  // namespace geesibling
 #endif

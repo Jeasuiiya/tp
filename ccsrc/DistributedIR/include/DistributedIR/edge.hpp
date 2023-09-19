@@ -1,14 +1,14 @@
 #pragma once
 
 #include <algorithm>
-#ifndef FRAMEWORK_IR_EDGE_H
-#define FRAMEWORK_IR_EDGE_H
+#ifndef GEESIBLING_IR_EDGE_H
+#define GEESIBLING_IR_EDGE_H
 #include <functional>
 #include <iostream>
 #include <string>
 
 #include "fmt/format.h"
-namespace framework {
+namespace geesibling {
 template <typename T>
 struct Edge;
 template <typename T>
@@ -113,41 +113,41 @@ struct HasEdgePort {
         BuildOutputPorts();
     }
 };
-}  // namespace framework
+}  // namespace geesibling
 
 // NOLINTBEGIN(readability-identifier-naming)
 template <typename T>
-struct fmt::formatter<framework::EdgePort<T>> {
+struct fmt::formatter<geesibling::EdgePort<T>> {
     static constexpr auto parse(format_parse_context& ctx) -> decltype(ctx.begin()) {
         return ctx.end();
     }
 
     template <typename FormatContext>
-    auto format(const framework::EdgePort<T>& ep, FormatContext& ctx) const -> decltype(ctx.out()) {
+    auto format(const geesibling::EdgePort<T>& ep, FormatContext& ctx) const -> decltype(ctx.out()) {
         return fmt::format_to(ctx.out(), "<{:s}, {}>", ep.entity, ep.index);
     }
 };
 
 template <>
-struct fmt::formatter<framework::EdgePort<std::string>> {
+struct fmt::formatter<geesibling::EdgePort<std::string>> {
     static constexpr auto parse(format_parse_context& ctx) -> decltype(ctx.begin()) {
         return ctx.end();
     }
 
     template <typename FormatContext>
-    auto format(const framework::EdgePort<std::string>& ep, FormatContext& ctx) const -> decltype(ctx.out()) {
+    auto format(const geesibling::EdgePort<std::string>& ep, FormatContext& ctx) const -> decltype(ctx.out()) {
         return fmt::format_to(ctx.out(), "<{}>", ep.entity);
     }
 };
 
 template <typename T>
-struct fmt::formatter<framework::Edge<T>> {
+struct fmt::formatter<geesibling::Edge<T>> {
     static constexpr auto parse(format_parse_context& ctx) -> decltype(ctx.begin()) {
         return ctx.end();
     }
 
     template <typename FormatContext>
-    auto format(const framework::Edge<T>& e, FormatContext& ctx) const -> decltype(ctx.out()) {
+    auto format(const geesibling::Edge<T>& e, FormatContext& ctx) const -> decltype(ctx.out()) {
         return fmt::format_to(ctx.out(), "Edge(start={}, end={})", e.start, e.end);
     }
 };

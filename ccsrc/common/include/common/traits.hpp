@@ -1,7 +1,7 @@
 #pragma once
 #include <functional>
-#ifndef FRAMEWORK_COMMON_TRAITS_H
-#define FRAMEWORK_COMMON_TRAITS_H
+#ifndef GEESIBLING_COMMON_TRAITS_H
+#define GEESIBLING_COMMON_TRAITS_H
 // NOLINTBEGIN
 template <class T>
 struct function_trait;

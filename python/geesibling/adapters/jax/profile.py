@@ -10,7 +10,7 @@ import ml_dtypes
 
 __doc__ = "profile op data"
 
-CACHE_PATH = os.environ.get("FRAMEWORK_PROFILE_CACHE", None) or "cache.json"
+CACHE_PATH = os.environ.get("GEESIBLING_PROFILE_CACHE", None) or "cache.json"
 PROFILE_CACHE = None
 UPDATED = False
 

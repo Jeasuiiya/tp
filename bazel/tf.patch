@@ -27,7 +27,7 @@ index 77e86d90f9c..ac60f71d906 100644
          ":step_stats_collector",
          ":threadpool_device",
          ":threadpool_device_factory",
-+        "@framework//:TFAdapterPlacementPass",
++        "@geesibling//:TFAdapterPlacementPass",
      ],
  )
 

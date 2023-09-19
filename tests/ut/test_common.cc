@@ -19,7 +19,7 @@ struct fmt::formatter<A> : public fmt::formatter<ShortFormat> {
 };
 // NOLINTEND(readability-identifier-naming)
 
-namespace framework {
+namespace geesibling {
 // Demonstrate some basic assertions.
 TEST(TestCommon, FmtRaiiPtr) {
     EXPECT_NO_THROW(std::cout << std::make_shared<std::string>("shared string") << std::endl);
@@ -44,4 +44,4 @@ TEST(TestCommon, FmtRaiiPtr) {
     auto g2 = IDGenerator.Gen();
     EXPECT_NE(g1, g2);
 }
-}  // namespace framework
+}  // namespace geesibling

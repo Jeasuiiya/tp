@@ -1,7 +1,7 @@
 load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 load("@global_pybind11_bazel//:python_configure.bzl", "python_configure")
-def framework_workspace1():
+def geesibling_workspace1():
     python_configure(name = "global_config_python", python_version = "3")
     http_archive(
         name = "global_pybind11",

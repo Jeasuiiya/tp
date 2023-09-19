@@ -30,7 +30,7 @@ Explain the proposal. That generally means:
 
 - Introducing new named concepts.
 - Explaining the feature largely in terms of examples.
-- Explaining how programmers should *think* about the feature, and how it should impact the way they use framework. It should explain the impact as concretely as possible.
+- Explaining how programmers should *think* about the feature, and how it should impact the way they use GeeSibling. It should explain the impact as concretely as possible.
 - If applicable, provide sample error messages, deprecation warnings, or migration guidance.
 
 

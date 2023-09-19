@@ -31,7 +31,7 @@ from jax.example_libraries import optimizers
 from jax.example_libraries import stax
 from jax.example_libraries.stax import Dense, Relu, LogSoftmax
 from examples import datasets
-from framework.adapters.jax import parallelize, device_config, DeviceType
+from geesibling.adapters.jax import parallelize, device_config, DeviceType
 
 
 def loss(params, batch):

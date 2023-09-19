@@ -1,7 +1,7 @@
 #include "policy/fd-dps/fddps_algorithm.h"
 
 #include "range/v3/all.hpp"
-namespace framework {
+namespace geesibling {
 
 cpp::result<std::vector<CostNode>, Error> FDDPSAlgorithm::Placement() {
     std::vector<CostNode>& cost_nodes = cost_graph.GetCostNodes();
@@ -310,4 +310,4 @@ void FDDPSAlgorithm::InitStartAndEndTime(std::vector<std::string> update_sequenc
         latest_start_times->insert(std::pair<std::string, int64_t>(node_name, min_last_start_time));
     }
 }
-}  // namespace framework
+}  // namespace geesibling

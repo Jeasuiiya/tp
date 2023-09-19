@@ -7,7 +7,7 @@
 #include "cost_graph/cost_graph.hpp"
 #include "gtest/gtest.h"
 
-namespace framework {
+namespace geesibling {
 TEST(TestCostGraph, CostGraph) {
     NodeBase node_1;
     node_1.Name("input");
@@ -98,4 +98,4 @@ TEST(TestCostGraph, CostGraph) {
     EXPECT_EQ(5, new_cost_graph.GetCostNodes()[0].GetOutputCommCosts()[0]);
     EXPECT_EQ(4, new_cost_graph.GetCostNodes()[2].GetInputCommCosts()[0]);
 }
-}  // namespace framework
+}  // namespace geesibling

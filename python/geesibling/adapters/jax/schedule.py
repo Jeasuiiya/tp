@@ -1,6 +1,6 @@
 from typing import Any, Dict, List
-from framework.core.types import Block, GraphPortRef, BlockPortRef, BlockId, SubGraph
-from framework.tools import log
+from geesibling.core.types import Block, GraphPortRef, BlockPortRef, BlockId, SubGraph
+from geesibling.tools import log
 
 __doc__ = "schedule blocks"
 

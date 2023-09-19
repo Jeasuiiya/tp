@@ -2,7 +2,7 @@
 #include "gtest/gtest.h"
 #include "policy/fd-dps/fddps_algorithm.h"
 
-namespace framework {
+namespace geesibling {
 
 TEST(TestFDDPS, FDDPS) {
     NodeBase node_1;
@@ -104,4 +104,4 @@ TEST(TestFDDPS, FDDPS) {
     FDDPSAlgorithm fddps_algorithm(cost_graph, devices);
     auto r = fddps_algorithm.Placement();
 }
-}  // namespace framework
+}  // namespace geesibling

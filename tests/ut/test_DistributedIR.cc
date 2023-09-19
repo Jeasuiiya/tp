@@ -7,21 +7,21 @@
 #include "DistributedIR/graph.hpp"
 #include "DistributedIR/node.hpp"
 #include "gtest/gtest.h"
-namespace framework {
+namespace geesibling {
 // Demonstrate some basic assertions.
 TEST(TestDistributedIR, DeviceGraph) {
     DeviceGraph graph("graph");
     Block block1("dev_1");
-    block1.AddInputPort(0, 0, framework::DataType::U8, {});
-    block1.AddInputPort(0, 1, framework::DataType::U8, {});
-    block1.AddInputPort(0, 2, framework::DataType::U8, {});
+    block1.AddInputPort(0, 0, geesibling::DataType::U8, {});
+    block1.AddInputPort(0, 1, geesibling::DataType::U8, {});
+    block1.AddInputPort(0, 2, geesibling::DataType::U8, {});
     EXPECT_EQ(block1.inputs.size(), 3);
     block1.AddOutputPort(DataType::U8, {});
     EXPECT_EQ(block1.outputs.size(), 1);
 
     Block block2("dev_2");
-    block2.AddInputPort(block1.Id(), 3, framework::DataType::U8, {});
-    block2.AddInputPort(0, 4, framework::DataType::U8, {});
+    block2.AddInputPort(block1.Id(), 3, geesibling::DataType::U8, {});
+    block2.AddInputPort(0, 4, geesibling::DataType::U8, {});
     EXPECT_EQ(block2.inputs.size(), 2);
     block2.AddOutputPort(DataType::U8, {});
     EXPECT_EQ(block2.outputs.size(), 1);
@@ -51,16 +51,16 @@ TEST(TestDistributedIR, DeviceGraph) {
 
     DeviceGraph graph1("graph1");
     Block graph1_block1("dev_1");
-    graph1_block1.AddInputPort(0, 0, framework::DataType::U8, {});
-    graph1_block1.AddInputPort(0, 1, framework::DataType::U8, {});
-    graph1_block1.AddInputPort(0, 2, framework::DataType::U8, {});
+    graph1_block1.AddInputPort(0, 0, geesibling::DataType::U8, {});
+    graph1_block1.AddInputPort(0, 1, geesibling::DataType::U8, {});
+    graph1_block1.AddInputPort(0, 2, geesibling::DataType::U8, {});
     EXPECT_EQ(graph1_block1.inputs.size(), 3);
     graph1_block1.AddOutputPort(DataType::U8, {});
     EXPECT_EQ(graph1_block1.outputs.size(), 1);
 
     Block graph1_block2("dev_2");
-    graph1_block2.AddInputPort(0, 0, framework::DataType::U8, {});
-    graph1_block2.AddInputPort(0, 1, framework::DataType::U8, {});
+    graph1_block2.AddInputPort(0, 0, geesibling::DataType::U8, {});
+    graph1_block2.AddInputPort(0, 1, geesibling::DataType::U8, {});
     EXPECT_EQ(graph1_block2.inputs.size(), 2);
     graph1_block2.AddOutputPort(DataType::U8, {});
     EXPECT_EQ(graph1_block2.outputs.size(), 1);
@@ -89,16 +89,16 @@ TEST(TestDistributedIR, DeviceGraph) {
 
     DeviceGraph graph2("graph2");
     Block graph2_block1("dev_1");
-    graph2_block1.AddInputPort(0, 0, framework::DataType::U8, {});
-    graph2_block1.AddInputPort(0, 1, framework::DataType::U8, {});
-    graph2_block1.AddInputPort(0, 2, framework::DataType::U8, {});
+    graph2_block1.AddInputPort(0, 0, geesibling::DataType::U8, {});
+    graph2_block1.AddInputPort(0, 1, geesibling::DataType::U8, {});
+    graph2_block1.AddInputPort(0, 2, geesibling::DataType::U8, {});
     EXPECT_EQ(graph2_block1.inputs.size(), 3);
     graph2_block1.AddOutputPort(DataType::U8, {});
     EXPECT_EQ(graph2_block1.outputs.size(), 1);
 
     Block graph2_block2("dev_2");
-    graph2_block2.AddInputPort(0, 0, framework::DataType::U8, {});
-    graph2_block2.AddInputPort(0, 1, framework::DataType::U8, {});
+    graph2_block2.AddInputPort(0, 0, geesibling::DataType::U8, {});
+    graph2_block2.AddInputPort(0, 1, geesibling::DataType::U8, {});
     EXPECT_EQ(graph2_block2.inputs.size(), 2);
     graph2_block2.AddOutputPort(DataType::U8, {});
     EXPECT_EQ(graph2_block2.outputs.size(), 1);
@@ -284,4 +284,4 @@ TEST(TestDistributedIR, DivideGraph2SubGraph) {
     EXPECT_TRUE(r.has_value());
     EXPECT_EQ(r.value().size(), 1);
 }
-}  // namespace framework
+}  // namespace geesibling

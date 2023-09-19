@@ -1,7 +1,7 @@
 #pragma once
 
-#ifndef FRAMEWORK_IR_BLOCK_H
-#define FRAMEWORK_IR_BLOCK_H
+#ifndef GEESIBLING_IR_BLOCK_H
+#define GEESIBLING_IR_BLOCK_H
 #include <algorithm>
 #include <functional>
 #include <iostream>
@@ -15,7 +15,7 @@
 #include "common/id.hpp"
 #include "common/util.hpp"
 #include "edge.hpp"
-namespace framework {
+namespace geesibling {
 
 class Block {
     friend struct fmt::formatter<Block>;
@@ -252,12 +252,12 @@ class ClusterGraph : public HasInternalEdge, public HasEdgePort<ServerGraph> {
     }
 };
 
-}  // namespace framework
+}  // namespace geesibling
 // NOLINTBEGIN(readability-identifier-naming)
 template <>
-struct fmt::formatter<framework::Block> : public fmt::formatter<ShortFormat> {
+struct fmt::formatter<geesibling::Block> : public fmt::formatter<ShortFormat> {
     template <typename FormatContext>
-    auto format(const framework::Block& b, FormatContext& ctx) const -> decltype(ctx.out()) {
+    auto format(const geesibling::Block& b, FormatContext& ctx) const -> decltype(ctx.out()) {
         if (presentation == 's') {
             return fmt::format_to(ctx.out(), "Block(id={}, device={})", b.id, b.device);
         }
@@ -267,9 +267,9 @@ struct fmt::formatter<framework::Block> : public fmt::formatter<ShortFormat> {
 };
 
 template <>
-struct fmt::formatter<framework::DeviceGraph> : public fmt::formatter<ShortFormat> {
+struct fmt::formatter<geesibling::DeviceGraph> : public fmt::formatter<ShortFormat> {
     template <typename FormatContext>
-    auto format(const framework::DeviceGraph& dg, FormatContext& ctx) const -> decltype(ctx.out()) {
+    auto format(const geesibling::DeviceGraph& dg, FormatContext& ctx) const -> decltype(ctx.out()) {
         if (presentation == 's') {
             return fmt::format_to(ctx.out(), "DeviceGraph(id={})", dg.id);
         }
@@ -279,9 +279,9 @@ struct fmt::formatter<framework::DeviceGraph> : public fmt::formatter<ShortForma
 };
 
 template <>
-struct fmt::formatter<framework::ServerGraph> : public fmt::formatter<ShortFormat> {
+struct fmt::formatter<geesibling::ServerGraph> : public fmt::formatter<ShortFormat> {
     template <typename FormatContext>
-    auto format(const framework::ServerGraph& sg, FormatContext& ctx) const -> decltype(ctx.out()) {
+    auto format(const geesibling::ServerGraph& sg, FormatContext& ctx) const -> decltype(ctx.out()) {
         if (presentation == 's') {
             return fmt::format_to(ctx.out(), "ServerGraph(id={})", sg.id);
         }
@@ -290,9 +290,9 @@ struct fmt::formatter<framework::ServerGraph> : public fmt::formatter<ShortForma
     }
 };
 template <>
-struct fmt::formatter<framework::ClusterGraph> : public fmt::formatter<ShortFormat> {
+struct fmt::formatter<geesibling::ClusterGraph> : public fmt::formatter<ShortFormat> {
     template <typename FormatContext>
-    auto format(const framework::ClusterGraph& cg, FormatContext& ctx) const -> decltype(ctx.out()) {
+    auto format(const geesibling::ClusterGraph& cg, FormatContext& ctx) const -> decltype(ctx.out()) {
         if (presentation == 's') {
             return fmt::format_to(ctx.out(), "ClusterGraph(id={})", cg.id);
         }
@@ -301,4 +301,4 @@ struct fmt::formatter<framework::ClusterGraph> : public fmt::formatter<ShortForm
     }
 };
 // NOLINTEND(readability-identifier-naming)
-#endif /* end of include guard: FRAMEWORK_IR_BLOCK_H */
+#endif /* end of include guard: GEESIBLING_IR_BLOCK_H */

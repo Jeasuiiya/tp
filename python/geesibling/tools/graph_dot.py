@@ -1,9 +1,9 @@
 """
 File: graph_dot.py
 Author: yiguangzheng
-Description: export framework graph
+Description: export geesibling graph
 """
-from framework.core.lib._graph import Graph
+from geesibling.core.lib._graph import Graph
 import pydot
 
 

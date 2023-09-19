@@ -11,7 +11,7 @@ import jax._src.ad_util as jad_util
 import jax._src.pjit as jpjit
 import jax._src.state as jstate
 from jax import util
-from framework.core.lib._graph import DataType
+from geesibling.core.lib._graph import DataType
 import ml_dtypes
 
 bfloat16 = ml_dtypes.bfloat16

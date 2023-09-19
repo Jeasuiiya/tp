@@ -2,7 +2,7 @@
 
 #include "common/log.h"
 
-namespace framework {
+namespace geesibling {
 
 std::int64_t Partition::GetOpMemory(Graph& graph, const std::string& op) {
     auto node = *graph.GetNode(op);
@@ -170,4 +170,4 @@ void Partition::AdjustV2(Graph& graph, std::int64_t max_iterations, float target
     }
 }
 
-}  // namespace framework
+}  // namespace geesibling

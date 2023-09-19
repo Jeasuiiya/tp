@@ -5,10 +5,10 @@
 #include "common/result_macro.hpp"
 #include "cost_graph/cost_graph.hpp"
 
-#ifndef FRAMEWORK_FDDPS_ALGORITHM_H
-#define FRAMEWORK_FDDPS_ALGORITHM_H
+#ifndef GEESIBLING_FDDPS_ALGORITHM_H
+#define GEESIBLING_FDDPS_ALGORITHM_H
 
-namespace framework {
+namespace geesibling {
 class FDDPSAlgorithm {
   private:
     CostGraph cost_graph;
@@ -53,6 +53,6 @@ class FDDPSAlgorithm {
     DECL_ACCESSOR(GetCostGraph, SetCostGraph, cost_graph, M)
     DECL_ACCESSOR(GetDevices, SetDevices, devices, M)
 };
-}  // namespace framework
+}  // namespace geesibling
 
 #endif

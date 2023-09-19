@@ -15,8 +15,8 @@ limitations under the License.
 #include <utility>
 #include <vector>
 
-#include "tensorflow/core/framework/graph.pb.h"
-#include "tensorflow/core/framework/tensor.h"
+#include "tensorflow/core/geesibling/graph.pb.h"
+#include "tensorflow/core/geesibling/tensor.h"
 #include "tensorflow/core/graph/default_device.h"
 #include "tensorflow/core/graph/graph_def_builder.h"
 #include "tensorflow/core/lib/core/errors.h"

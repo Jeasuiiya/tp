@@ -1,5 +1,5 @@
-#ifndef FRAMEWORK_UTIL_H
-#define FRAMEWORK_UTIL_H
+#ifndef GEESIBLING_UTIL_H
+#define GEESIBLING_UTIL_H
 #include <type_traits>
 
 #include "traits.hpp"
@@ -95,4 +95,4 @@
     DECL_GETTER_PROXY(SetterGetterName, Proxy, SetterGetterName)
 #endif
 
-#endif /* ifndef FRAMEWORK_UTIL_H */
+#endif /* ifndef GEESIBLING_UTIL_H */
