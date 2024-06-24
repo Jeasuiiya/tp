@@ -240,7 +240,7 @@ def process_apply_gradient(apply_grad_jaxpr, microbatch_bound, pipeline_stages,
     gradvar_to_mesh = get_var_to_mesh(gradients, pipeline_stages, stage_to_mesh,
                                       apply_in_to_acc_out)
     #print("gradvar_to_mesh:",gradvar_to_mesh)
-    gradvar_to_mesh = sorted(gradvar_to_mesh.items(), key=lambda x: x[1], reverse=False)
+    #gradvar_to_mesh = sorted(gradvar_to_mesh.items(), key=lambda x: x[1], reverse=False)
     var_stage_map = {}
     eqn_stage_map = {}
     for i, eqn in enumerate(apply_grad_jaxpr.eqns):
