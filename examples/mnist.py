@@ -19,10 +19,8 @@ the mini-library jax.example_libraries.optimizers is for first-order stochastic
 optimization.
 """
 
-
 import time
 import itertools
-
 import numpy.random as npr
 import jax
 import jax.numpy as jnp
@@ -30,22 +28,21 @@ from jax import jit, grad, random
 from jax.example_libraries import optimizers
 from jax.example_libraries import stax
 from jax.example_libraries.stax import Dense, Relu, LogSoftmax
-from examples import datasets
+import datasets
 from geesibling.adapters.jax import parallelize, device_config, DeviceType
-
+from geesibling.adapters.jax import api
+from geesibling.adapters.jax.parallel_method import ShardParallel,PipeshardParallel
 
 def loss(params, batch):
     inputs, targets = batch
     preds = predict(params, inputs)
     return -jnp.mean(jnp.sum(preds * targets, axis=1))
 
-
 def accuracy(params, batch):
     inputs, targets = batch
     target_class = jnp.argmax(targets, axis=1)
     predicted_class = jnp.argmax(predict(params, inputs), axis=1)
     return jnp.mean(predicted_class == target_class)
-
 
 init_random_params, predict = stax.serial(
     Dense(1024),
@@ -79,13 +76,13 @@ init_random_params, predict = stax.serial(
     Dense(10),
     LogSoftmax,
 )
-
 if __name__ == "__main__":
-    rng = random.PRNGKey(0)
 
+
+    rng = random.PRNGKey(0)
     step_size = 0.001
-    num_epochs = 1000
-    batch_size = 128
+    num_epochs = 4
+    batch_size = 256
     momentum_mass = 0.9
 
     train_images, train_labels, test_images, test_labels = datasets.mnist()
@@ -105,29 +102,17 @@ if __name__ == "__main__":
 
     opt_init, opt_update, get_params = optimizers.momentum(step_size, mass=momentum_mass)
 
-    @parallelize(
-        devices=device_config(
-            {
-                "gpu:1": {
-                    "type": DeviceType.gpu,
-                    "memory": 32 * 1024 * 1024 * 1024,
-                    "free_memory": 32 * 1024 * 1024 * 1024,
-                    "execute_time": 0,
-                },
-                "gpu:0": {
-                    "type": DeviceType.gpu,
-                    "memory": 22 * 1024 * 1024 * 1024,
-                    "free_memory": 22 * 1024 * 1024 * 1024,
-                    "execute_time": 0,
-                },
-            }
-        ),
+    method=PipeshardParallel(
         policy="sgp",
-    )
-    # @jit
+        num_microbatch=4,
+        layer_method="auto",
+        if_ray=True
+
+   )
+    @parallelize(parallel_method=method)
     def update(i, opt_state, batch):
         params = get_params(opt_state)
-        return opt_update(i, grad(loss)(params, batch), opt_state)
+        return opt_update(i, method.grad(loss)(params, batch), opt_state)
 
     _, init_params = init_random_params(rng, (-1, 28 * 28))
     opt_state = opt_init(init_params)
@@ -136,7 +121,9 @@ if __name__ == "__main__":
     print("\nStarting training...")
     for epoch in range(num_epochs):
         start_time = time.time()
-        for _ in range(num_batches):
+
+
+        for _ in range(1):
             opt_state = update(next(itercount), opt_state, next(batches))
         epoch_time = time.time() - start_time
         with jax.default_device(jax.devices("cpu")[0]):
@@ -146,3 +133,5 @@ if __name__ == "__main__":
             print(f"Epoch {epoch} in {epoch_time:0.2f} sec")
             print(f"Training set accuracy {train_acc}")
             print(f"Test set accuracy {test_acc}")
+
+

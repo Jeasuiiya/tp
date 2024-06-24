@@ -35,7 +35,7 @@ SHAPE_ARRAY_DTYPE_TO_BYTES = {
     np.dtype("float64"): 8,
 }
 
-
+#初始化性能分析数据缓存的函数
 def init():
     global PROFILE_CACHE  # pylint: disable=global-statement
     if PROFILE_CACHE is not None:
@@ -46,7 +46,7 @@ def init():
     else:
         PROFILE_CACHE = {}
 
-
+#将性能分析数据缓存写回文件的函数
 def write_back():
     global PROFILE_CACHE, UPDATED  # pylint: disable=global-statement
     if UPDATED:
@@ -55,7 +55,7 @@ def write_back():
     PROFILE_CACHE = None
     UPDATED = False
 
-
+#用于更新性能分析数据缓存中的特定操作
 def update(op_name, input_sign, cost):
     global UPDATED  # pylint: disable=global-statement
     if PROFILE_CACHE.get(op_name, None) is None:
@@ -66,14 +66,14 @@ def update(op_name, input_sign, cost):
     op_cache[input_sign] = cost
     UPDATED = True
 
-
+#确保了性能分析期间的适当数据管理
 @contextlib.contextmanager
 def profile():
     init()
     yield
     write_back()
 
-
+#对单个方程进行性能分析的函数
 def profile_eqn(eqn):
     """
     profile single eqn
@@ -116,7 +116,7 @@ def profile_eqn(eqn):
 
     invars = list(map(data, eqn.invars))
     start = time.time()
-    jitted = jax.jit(functools.partial(jc.eval_jaxpr, jaxpr, []))
+    jitted = jax.jit(functools.partial(jc.eval_jaxpr, jaxpr, []))#通过jit编译方程式并多次运行获取平均耗时
     for _ in range(100):
         jitted(*invars)
     end = time.time()

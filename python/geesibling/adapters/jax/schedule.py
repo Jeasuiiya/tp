@@ -4,7 +4,7 @@ from geesibling.tools import log
 
 __doc__ = "schedule blocks"
 
-
+#表示调度上下文的状态，跟踪和管理调度上下文的状态，其中包括图，块，输入变量，返回值等映射关系和列表
 class ScheduleContext:
     """
     schedule context status
@@ -44,7 +44,7 @@ class ScheduleContext:
         queue = []
         ready = set({(0, i) for i in range(len(self.invars))})
         visited = set()
-
+        #判断块是否可以进入队列
         def can_enqueue(b):
             if b.inputports_size == 0 and b.outputports_size >= 0:
                 return True and b not in visited
@@ -63,12 +63,13 @@ class ScheduleContext:
             if can_enqueue(block):
                 callback(b)
                 visited.add(block)
-
+        #初始化队列的第一层
         queue_level = []
         for b in self.block2graph:
             enqueue(b, queue_level.append)
         queue.append(queue_level)
         ready = set({(0, i) for i in range(len(self.invars))})
+
         while len(queue) != 0:
             queue_level = queue[0]
             queue.pop(0)
@@ -84,6 +85,7 @@ class ScheduleContext:
             if len(next_level) > 0:
                 queue.append(next_level)
         # assert len(self.block2graph) == count
+
         not_visited = []
         for b, g in self.block2graph.items():
             if b not in visited:
@@ -95,9 +97,8 @@ class ScheduleContext:
         """Manage a graph"""
         if not isinstance(graph, SubGraph):
             graph = SubGraph(graph)
-
         b = Block(graph)
-        # record ref
+        # record ref 记录引用的关系
         assert self.graph2block.get(graph, None) is None
         log.trace("block: %s nodes: %s", b.id, (i.name for i in graph.nodes))
         self.graph2block[graph] = b
@@ -110,7 +111,8 @@ class ScheduleContext:
         """
         for i in graphs:
             self.block(i)
-
+        
+    #准备图的输出，为每个块添加输出端口，并建立节点输出引用与块端口引用这间的映射关系，为了在调度执行时能够正确地将输出传给下一个块  单块的输出以及整体的输出
     def _prepare_outputs(self):
         return_node_names = []
         if self.returns is not None and len(self.returns) != 0:
@@ -120,7 +122,7 @@ class ScheduleContext:
             graph = block.graph
             out = list(map(lambda x: self.graph2block[x], graph.output_graphs))
             log.trace("block: %s output blocks: %s", block.id, out)
-            self.execute_successor[block] = out
+            self.execute_successor[block] = out#将当前块的后继设置为图的输出块
             for j in range(graph.nodes_num):
                 node = graph.get_node(j)
                 if node.name in return_node_names:

@@ -9,6 +9,8 @@ import jax.lax as jl
 import jax._src.prng as jprng
 import jax._src.ad_util as jad_util
 import jax._src.pjit as jpjit
+#from jax.experimental import pjit as jpjit
+#from jax.interpreters.xla import xla_call
 import jax._src.state as jstate
 from jax import util
 from geesibling.core.lib._graph import DataType
@@ -60,6 +62,7 @@ def register_module_ops(m):
 
 
 register_module_ops(jl)
+#register_module_ops(xla_call)
 register_module_ops(jax.custom_derivatives)
 register_module_ops(jprng)
 register_module_ops(jad_util)
@@ -72,7 +75,7 @@ class ConvertContext:
     source_info: jc.source_info_util.SourceInfo
     counter: it.count
     output_var: Dict[str, jc.Var]
-
+    #input_var: Dict[str, jc.Var]
 
 def topo_graph(graph, indegree0, visited):
     """
@@ -155,9 +158,13 @@ def _prepare_invars(context, scontext, block):
     for i in block.inputports:
         node_ref = scontext.blockoutput_nodeoutput[(i.source, i.source_index)]
         data_type, data_shape = i.dtype, i.shape
+        if data_type == DataType.Other:
+            data_type = scontext.node_output_type[node_ref]
+        else:
+            data_type = DATA_TYPE_TO_SHAPE_ARRAY_DTYPE[data_type]
         vars_in[node_ref] = jc.Var(
-            next(context.counter), SUFFIX, jc.ShapedArray(data_shape, DATA_TYPE_TO_SHAPE_ARRAY_DTYPE[data_type])
-        )
+            next(context.counter), SUFFIX, jc.ShapedArray(data_shape, data_type)
+            )
     return vars_in
 
 
@@ -192,6 +199,15 @@ def block2jaxpr(sctx, block, params=None, inline=False):
         visited = set(visited[0])
     else:
         visited = set()
+
+    def input_var(*args):
+        node, i = args
+        data_type, data_shape = node.input_type(i), node.input_shape(i)
+        if data_type == DataType.Other:
+            data_type = sctx.node_input_type[node.input_name(i)]
+        else:
+            data_type = DATA_TYPE_TO_SHAPE_ARRAY_DTYPE[data_type]
+        return jc.Var(next(ctx.counter), "", jc.ShapedArray(data_shape, data_type))
 
     def output_var(*args):
         node, i = args

@@ -49,6 +49,7 @@ class GraphWrapper:
     invars: List[GraphPortRef]
     returns: List[GraphPortRef]
     node_output_type: Dict[Tuple[str, int], Any]
+    node_input_type: Dict[Tuple[str, int], Any]
     node_ref_const: Dict[Tuple[str, int], Any]
 
 
@@ -65,6 +66,7 @@ class ConvertContext:
     id_params = {}
     # record opaque type for node output
     node_output_type: Dict[GraphPortRef, Any]
+    node_input_type: Dict[GraphPortRef, Any]
 
     def __init__(self):
         self.var_ids = collections.defaultdict(it.count().__next__, {})
@@ -73,6 +75,7 @@ class ConvertContext:
         self.literal_inputs = {}
         self.node_name_record = {}
         self.node_output_type = {}
+        self.node_input_type = {}
 
     def register_var(self, var: jcore.Var):
         """
@@ -115,7 +118,13 @@ def process_var(v: jcore.Var, context: ConvertContext, name_prifix=None):
     if context.var_outputs.get(v) is None:
         context.register_var(v)
         node = Node(context.gen_name(name_prifix), name_prifix)
-        node.add_outputport(SHAPE_ARRAY_DTYPE_TO_DATA_TYPE[v.aval.dtype], v.aval.shape, 0)
+        dtype = v.aval.dtype
+        if dtype not in SHAPE_ARRAY_DTYPE_TO_DATA_TYPE:
+            context.node_output_type[GraphPortRef(node.name, 0)] = dtype
+            dtype = DataType.Other
+        else:
+            dtype = SHAPE_ARRAY_DTYPE_TO_DATA_TYPE[dtype]
+        node.add_outputport(dtype, v.aval.shape, 0)
         context.register_output(v, node, 0)
         return node
     return context.var_outputs[v]
@@ -154,7 +163,7 @@ def _add_abstract_output(context, var, node, index):
 def _add_abstract_input(context, var, node, index, ref_name, ref_index):
     dtype = var.aval.dtype
     if dtype not in SHAPE_ARRAY_DTYPE_TO_DATA_TYPE:
-        context.node_output_type[GraphPortRef(node.name, index)] = dtype
+        context.node_input_type[GraphPortRef(node.name, index)] = dtype
         dtype = DataType.Other
     else:
         dtype = SHAPE_ARRAY_DTYPE_TO_DATA_TYPE[dtype]
@@ -195,6 +204,7 @@ def process_eqn(eqn, context: ConvertContext):
 
     _ = [build_inputs(i, v) for i, v in enumerate(eqn.invars)]
     compute, input_memory, output_memory = profile_eqn(eqn)
+    # compute, input_memory, output_memory = 100,100,100
     node.compute_cost = compute
     node.input_memory = input_memory
     node.output_memory = output_memory
@@ -255,7 +265,7 @@ def jaxpr2graph(jaxpr: jcore.ClosedJaxpr):
     input_vars = list(
         map(lambda x: GraphPortRef(context.var_outputs[x][0].name, context.var_outputs[x][1]), jaxpr.jaxpr.invars)
     )
-    return GraphWrapper(graph, context.id_params, input_vars, graph.returns, context.node_output_type, node_ref_const)
+    return GraphWrapper(graph, context.id_params, input_vars, graph.returns, context.node_output_type, context.node_input_type, node_ref_const)
 
 
 def add(x, y):

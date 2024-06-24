@@ -1,26 +1,31 @@
+import logging
 import functools
 from typing import Callable, Optional
-from concurrent.futures import ThreadPoolExecutor, as_completed
 import jax
-import numpy as np
-from jax.tree_util import tree_flatten, tree_unflatten
-from geesibling.adapters.jax.jaxpr2graph import jaxpr2graph
-from geesibling.adapters.jax.block2jaxpr import block2jaxpr
-from geesibling.core.lib._graph import divide_graph, search_policy, Device
-from geesibling.adapters.jax.schedule import ScheduleContext
+from jax.tree_util import tree_flatten
+from jax.api_util import argnums_partial, donation_vector,flatten_fun_nokwargs
+from jax._src import api
+from geesibling.core.lib._graph import Device
+from geesibling.adapters.jax.pipeline.devicecontext import get_global_virtual_physical_mesh
+from geesibling.adapters.jax.model_parallelism import MakeScheduleContext
+from geesibling.adapters.jax.pipeline.layer_construction import layer_level_transformation
+from geesibling.adapters.jax.pipeline.primitive_def import mark_gradient
+from geesibling.adapters.jax.pipeline.util import auto_static_argnums, abstractify_with_aval
 from geesibling.tools import log
-
+from jax import linear_util as lu
+from jax._src.maps import FrozenDict
+import ray
+import time
+from geesibling.adapters.jax.pipeline.instructions import PipelineInstType
 __doc__ = """
 parallelize api
 Author: yiguangzheng
 datetime: 2023.7.4
 version: 1 2023.7.4 first commit
 """
-
-
 DEVICE_MAP = {"": jax.devices("cpu")[0] if len(jax.devices("gpu")) == 0 else jax.devices("gpu")[0]}
-
-
+layer_num=4
+from ray.util.collective.collective_group.nccl_collective_group import NCCLGroup
 def register_device():
     for i in jax.devices("cpu"):
         DEVICE_MAP[str(i)] = i
@@ -30,7 +35,7 @@ def register_device():
 
 
 register_device()
-
+logging.basicConfig(level=logging.WARNING)
 
 def device_config(attrs):
     d = []
@@ -38,69 +43,12 @@ def device_config(attrs):
         d.append(Device(v["type"], k, v["memory"], v["free_memory"], v["execute_time"]))
     return d
 
-
+#抽象的数据转换
 def _abstractify(args, kwargs):
     flat_args, in_tree = tree_flatten((args, kwargs))
-    return map(jax.api_util.shaped_abstractify, flat_args), flat_args, in_tree
+    return map(jax.api_util.shaped_abstractify, flat_args), flat_args, in_tree#将其转化为含有形状和数据类型等信息的对象
 
-
-class MakeScheduleContext:
-    """
-    schedule context.
-    used for saving arguments for parallelizing function
-    """
-
-    def __init__(self, func, devices=(), policy="fddps") -> None:
-        self.func = func
-        self.devices = devices
-        self.policy = policy
-        self.args = None
-        self.kwargs = None
-
-    def a(self, args, kwargs):
-        self.args, self.kwargs = args, kwargs
-
-    @functools.lru_cache()
-    def __call__(self, in_avals):
-        pr, out_tree = jax.make_jaxpr(self.func, return_shape=True)(*self.args, **self.kwargs)
-        gw = jaxpr2graph(pr)
-        log.debug("jaxpr2graph finished")
-        g = gw.graph
-        # call strategy search
-
-        device_map = search_policy(g, self.devices, self.policy)
-
-        log.debug("search policy finished. placement: %s", device_map)
-
-        if device_map is not None:
-            for k, v in device_map.items():
-                g.get_node(k).device = v
-        else:
-            log.warning("search policy failed.")
-        sub_graphs = divide_graph(g)
-
-        # prepare context
-        @functools.lru_cache()
-        def cache_executable(ctx, block):
-            pr, const_names = block2jaxpr(ctx, block, gw.params)
-
-            const = list(map(lambda x: gw.node_ref_const[x], const_names))
-            return jax.jit(functools.partial(jax.core.eval_jaxpr, pr, const), device=DEVICE_MAP[block.device])
-
-        ctx = ScheduleContext(gw.invars, gw.returns, gw.node_output_type, out_tree, cache_executable)
-        ctx.blocks(sub_graphs)
-        ctx.regular_blocks()
-        # ctx.topo_order = tuple(filter(lambda b: b.outputports_size != 0, ctx.order()))
-        ctx.topo_order = tuple(ctx.order())
-        log.debug(
-            "scheduled: %s, all blocks: %s ",
-            functools.reduce(lambda a, b: a + len(b), ctx.topo_order, 0),
-            len(ctx.graph2block),
-        )
-        return ctx
-
-
-def parallelize(func: Optional[Callable] = None, *, devices=None, policy="fddps"):
+def parallelize(func: Optional[Callable] = None, *, parallel_method=""):
     """
     parallelize a function
 
@@ -113,56 +61,138 @@ def parallelize(func: Optional[Callable] = None, *, devices=None, policy="fddps"
         return out
     ```
     """
-
     def decorator(func):
-        make_ctx = MakeScheduleContext(func, devices or (), policy or "fddps")
-
-        def exec_block(ctx, flat_args, block):
-            bargs = []
-            for i in block.inputports:
-                if i.source == 0:  # block id is 0, global input
-                    bargs.append(flat_args[i.source_index])
-                else:
-                    a = ctx.block_outputs[i.source][i.source_index]
-                    if not isinstance(a, np.ndarray):
-                        if a.device() is not DEVICE_MAP[block.device]:
-                            a = jax.device_put(a, DEVICE_MAP[block.device]).block_until_ready()
-                    bargs.append(a)
-            with jax.default_device(DEVICE_MAP[block.device]):
-                return jax.block_until_ready(ctx.cache_block_executable(ctx, block)(*bargs))
-
-        def schedule_level(ctx, level, flat_args):
-            # todo(huangchengchuang): all block in level could be parallelized
-            with ThreadPoolExecutor(max_workers=128) as executor:
-                future_to_results = {executor.submit(exec_block, ctx, flat_args, block): block for block in level}
-                for future in as_completed(future_to_results):
-                    block = future_to_results[future]
-                    ctx.block_outputs[block.id] = future.result()
-
         @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            make_ctx.args, make_ctx.kwargs = args, kwargs
-            in_avals, flat_args, _ = _abstractify(args, kwargs)
-            ctx = make_ctx(tuple(in_avals))
-            for level in ctx.topo_order:
-                schedule_level(ctx, level, flat_args)
+        def wrapper(*args, **kwargs):#代替被装饰的函数，先将参数以及关键字抽象化，构建上下文调度，然后按照拓扑的顺序，调度每一层中的所有块的执行，生成最终的输出
+            if parallel_method.method=="PipeshardParallel":
+                virtual_mesh=get_global_virtual_physical_mesh()
+                f = lu.wrap_init(func)
+                static_argnums = auto_static_argnums(args)
+                if static_argnums:
+                    dyn_argnums = [
+                        i for i in range(len(args)) if i not in static_argnums
+                    ]
+                    # Freeze static dict to make it hashable
+                    frozen_args = []
+                    for i, arg in enumerate(args):
+                        if i in static_argnums and isinstance(arg, dict):
+                            frozen_args.append(FrozenDict(arg))
+                        else:
+                            frozen_args.append(arg)
+                    f, dyn_args = argnums_partial(f, dyn_argnums, frozen_args)
+                else:
+                    dyn_args = args
+                args_flat, in_tree = tree_flatten(dyn_args)
+                f, out_tree = flatten_fun_nokwargs(f, in_tree)
+                batch_invars = donation_vector((1,), dyn_args, kwargs)
+#                abstract_args = map(abstractify_with_aval, args_flat)
+#                abstract_args_micro = map(abstractify_with_aval, args_flat)
+#                closed_jaxpr, out_tree= jax.make_jaxpr(func, return_shape=True)(*args, **kwargs)
+                #sentence = "123"
+                #for mesh_idx, physical_mesh in enumerate(virtual_mesh.launched_physical_mesh_group):
+                #    for worker in physical_mesh.workers:
+                #        ray.get(worker.get_func_to_pr.remote(sentence))
 
-            def returns(r):
-                block_ref = ctx.nodeoutput_blockoutput[r]
-                return ctx.block_outputs[block_ref.block][block_ref.index]
+                list_instr={}
+                for mesh_idx, physical_mesh in enumerate(virtual_mesh.launched_physical_mesh_group):
+                    for worker in physical_mesh.workers:
+                        if parallel_method.flag:
+                            list_instr[mesh_idx]=ray.get(worker.get_data_to_split.remote(args_flat,parallel_method.num_microbatch))
+                        else:
+                            abstract_args = map(abstractify_with_aval, args_flat)
+                            closed_jaxpr, out_tree= jax.make_jaxpr(func, return_shape=True)(*args, **kwargs) 
+                            list_instr[mesh_idx]=ray.get(worker.get_stages_to_run.remote(f,parallel_method.policy, parallel_method.method, batch_invars, parallel_method.num_microbatch, args_flat,out_tree, parallel_method.layer_num, *abstract_args))
 
-            _, out_tree = tree_flatten(ctx.out_tree)
-            return tree_unflatten(out_tree, map(returns, ctx.returns))
+                parallel_method.flag = True
+                def run_executable(worker,instructions):
+                    for num,instruction in enumerate(instructions):
+                        if instruction.opcode == PipelineInstType.RUN:
+                            worker.run_model_parallelism.remote(num)
+                        elif instruction.opcode == PipelineInstType.SEND:
+                            worker.do_send_data.remote(num)
+                        elif instruction.opcode == PipelineInstType.RECV:
+                            worker.do_recv_data.remote(num)
 
-        def run_context(*args, **kwargs):
+                for mesh_idx, physical_mesh in enumerate(virtual_mesh.launched_physical_mesh_group):
+                    for worker in physical_mesh.workers:
+                        run_executable(worker,list_instr[mesh_idx])
+                for mesh_idx, physical_mesh in enumerate(virtual_mesh.launched_physical_mesh_group):
+                    for worker in physical_mesh.workers:
+                        if mesh_idx==0:
+                            result=ray.get(worker.return_result.remote())
+
+                for mesh_idx, physical_mesh in enumerate(virtual_mesh.launched_physical_mesh_group):
+                    for worker in physical_mesh.workers:
+                        worker.free_buffers.remote()
+
+            elif parallel_method.method=="ShardParallel":
+                make_ctx = MakeScheduleContext(func, parallel_method.devices or (), parallel_method.policy or "fddps", parallel_method.method or "")
+                make_ctx.args, make_ctx.kwargs = args, kwargs
+                in_avals, flat_args, _= _abstractify(args, kwargs)
+
+                pr, out_tree = jax.make_jaxpr(func, return_shape=True)(*args, **kwargs)#生成jax语法树
+                ctx = make_ctx([pr,parallel_method.devices])
+                result = make_ctx.get_model_parallelism_result(ctx, flat_args, out_tree)
+
+            return result
+
+        def run_context(*args, **kwargs):#用于在不执行函数的情况下创建并返回调度上下文
             make_ctx.args, make_ctx.kwargs = args, kwargs
             in_avals, _, _ = _abstractify(args, kwargs)
             ctx = make_ctx(tuple(in_avals))
             return ctx
 
         wrapper.run_context = run_context
-        return wrapper
+        return wrapper #添加属性，提供外界访问
+
 
     if func is None:
         return decorator
     return decorator(func)
+
+
+
+def grad(*args, **kwargs):
+    """This is the same as jax.grad, except that alpa inserts a
+    gradient marker after the gradient computation.
+
+    This function annotates all gradient tensors. This information is used to
+    perform gradient accumulation transformation.
+    If any auxiliary tensors are returned, they are averaged over mini batches
+    in the same way as how th)e gradients are averaged.
+    """
+    def ret(*call_args, **call_kwargs):
+        # Apply transformations (e.g., layer construction, rematerialization)
+        # to the forward func
+        global layer_num
+        arg_list = list(args)
+        arg_list[0] = layer_level_transformation(arg_list[0],layer_num)
+        grad_func = api.grad(*arg_list, **kwargs)
+        grads = grad_func(*call_args, **call_kwargs)
+        return mark_gradient(grads)
+
+    return ret
+
+
+def value_and_grad(*args, **kwargs):
+    """This is the same as jax.value_and_grad, except that alpa inserts a
+    gradient marker after the gradient computation.
+
+
+    This function annotates all gradient tensors. This information is used to
+    perform gradient accumulation transformation.
+    If any auxiliary tensors are returned, they are averaged over mini batches
+    in the same way as how the gradients are averaged.
+    """
+    
+    def ret(*call_args, **call_kwargs):
+        # Apply transformations (e.g., layer construction, rematerialization)
+        # to the forward func
+        global layer_num
+        arg_list = list(args)
+        arg_list[0] = layer_level_transformation(arg_list[0],layer_num)
+        grad_func = api.value_and_grad(*arg_list, **kwargs)
+        val, grads = grad_func(*call_args, **call_kwargs)
+        return mark_gradient((val, grads))
+
+    return ret

@@ -28,10 +28,12 @@ class Builder {
             this->op_index.insert(std::pair<std::string, std::int64_t>(node->Name(), i++));
             std::map<std::string, std::string> attr = node->Attrs();
             if (attr.count("colocation_group") == 0) {
-                attr.try_emplace("colocation_group", (*node).Name());
-            }
-            this->SetColocationGroup(node->Name(), attr["colocation_group"]);
-            this->AddEdges(node);
+                //attr.try_emplace("colocation_group", (*node).Name());
+            	(*node).Attrs().try_emplace("colocation_group", (*node).Name());
+	    }
+            //this->SetColocationGroup(node->Name(), attr["colocation_group"]);
+            this->SetColocationGroup(node->Name(), (*node).Attrs()["colocation_group"]);
+	    this->AddEdges(node);
             this->graph.AddNode(node);
             visited.insert(node->Name());
         }
@@ -41,10 +43,12 @@ class Builder {
                     this->op_index.insert(std::pair<std::string, std::int64_t>((*node).Name(), i++));
                     std::map<std::string, std::string> attr = (*node).Attrs();
                     if (attr.count("colocation_group") == 0) {
-                        attr.try_emplace("colocation_group", (*node).Name());
-                    }
-                    this->SetColocationGroup((*node).Name(), attr["colocation_group"]);
-                    this->AddEdges(node);
+                        //attr.try_emplace("colocation_group", (*node).Name());
+                    	(*node).Attrs().try_emplace("colocation_group", (*node).Name());
+		    }
+                    //this->SetColocationGroup((*node).Name(), attr["colocation_group"]);
+                    this->SetColocationGroup((*node).Name(), (*node).Attrs()["colocation_group"]);
+		    this->AddEdges(node);
                     this->graph.AddNode(node);
                 }
             }
