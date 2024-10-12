@@ -412,15 +412,14 @@ def layer_level_transformation(fun: Callable,
                 layer_num = search_layer_num(jaxpr, eps, layer_eps)
             costs = get_layer_construction_costs(jaxpr,
                                                  cost_criteria=cost_criteria)
-            print(len(costs),layer_num)
-            sliced_eqns, _ = cluster_jaxpr_by_cost(jaxpr,
-                                                   layer_num,
-                                                   eps,
-                                                   costs,
-                                                   cost_criteria=cost_criteria)
+    #        sliced_eqns, _ = cluster_jaxpr_by_cost(jaxpr,
+     #                                              layer_num,
+      #                                             eps,
+       #                                            costs,
+        #                                           cost_criteria=cost_criteria)
             #print("sliced_eqns length:",len(sliced_eqns[0]),len(sliced_eqns[1]),len(sliced_eqns[2]),len(sliced_eqns[3]))
             
-#            sliced_eqns = slice_eqns_by_eqnsnum(jaxpr,layer_num)
+            sliced_eqns = slice_eqns_by_eqnsnum(jaxpr,layer_num)
             
             jaxpr = add_pipeline_marks_for_sliced_eqns(jaxpr, sliced_eqns)
 

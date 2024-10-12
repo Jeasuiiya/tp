@@ -28,6 +28,7 @@ from geesibling.core.lib._graph import Device
 from ray.util.placement_group import remove_placement_group
 from geesibling.adapters.jax.pipeline.stage_construction import compile_executable
 jax.config.update("jax_enable_x64", True)
+from geesibling.adapters.jax.shard_parallel.shard_parallel import shard_parallel
 def device_config(attrs):
         d = []
         for k, v in attrs.items():
@@ -323,6 +324,26 @@ class MeshHostWorker:
                         instruction.src_rank,
                         instruction.groupname,
                         )
+
+    def run_shard_parallelism(self,num):
+
+        instruction=self.instructions[num]
+        stage_id=instruction.stage_id
+        micro_batch_id=instruction.micro_batch_id
+        input_vars=instruction.input_vars
+        output_vars=instruction.output_vars
+        flat_args=[]
+        for var in input_vars:
+            if var in self.buffers[-1]:
+                flat_args.append(self.buffers[-1][var])
+            else:
+                flat_args.append(self.buffers[micro_batch_id][var])
+
+        result = shard_parallel(self.jax_all_stages[stage_id], flat_args, self.out_tree)
+
+        for var, val in zip(output_vars,result):
+             self.buffers[micro_batch_id][var] = val
+        print(stage_id,"FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF")
     def run_model_parallelism(self,num):
 
         instruction=self.instructions[num]

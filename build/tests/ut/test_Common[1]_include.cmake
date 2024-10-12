@@ -1,0 +1,5 @@
+if(EXISTS "/home/ai/cy/temp/GeeSibling/build/tests/ut/test_Common[1]_tests.cmake")
+  include("/home/ai/cy/temp/GeeSibling/build/tests/ut/test_Common[1]_tests.cmake")
+else()
+  add_test(test_Common_NOT_BUILT test_Common_NOT_BUILT)
+endif()

@@ -107,11 +107,11 @@ def parallelize(func: Optional[Callable] = None, *, parallel_method=""):
                 def run_executable(worker,instructions):
                     for num,instruction in enumerate(instructions):
                         if instruction.opcode == PipelineInstType.RUN:
-                            worker.run_model_parallelism.remote(num)
+                            worker.run_shard_parallelism.remote(num)
                         elif instruction.opcode == PipelineInstType.SEND:
-                            worker.do_send_data.remote(num)
+                            worker.do_send_1.remote(num)
                         elif instruction.opcode == PipelineInstType.RECV:
-                            worker.do_recv_data.remote(num)
+                            worker.do_recv_1.remote(num)
 
                 for mesh_idx, physical_mesh in enumerate(virtual_mesh.launched_physical_mesh_group):
                     for worker in physical_mesh.workers:
