@@ -1,5 +1,6 @@
 from jax.experimental.shard_map import shard_map
 from jax.sharding import NamedSharding, PartitionSpec as P, Mesh
+from jax.experimental import mesh_utils
 import functools
 from typing import Callable, Optional
 import jax
@@ -21,12 +22,14 @@ from geesibling.tools import log
 
 def shard_parallel(pr,args,out_tree):
     devices = jax.devices()
-    mesh = Mesh(devices, ['x'])
+    device_mesh = mesh_utils.create_device_mesh((2, 1), devices[:2])
+    mesh = Mesh(device_mesh, axis_names=('x','y'))
+    
     def sharded_eval_jaxpr(*args):
         def eval_jaxpr(*args):
             return jax.core.eval_jaxpr(pr.jaxpr, pr.consts, *args)
 
-        return shard_map(eval_jaxpr, mesh, in_specs=P(), out_specs=P(),check_rep=False)(*args)
+        return shard_map(eval_jaxpr, mesh, in_specs=(P(None, None), P(None, 'x')), out_specs=P(None, 'x'), check_rep=False)(*args)
     
     jitted_sharded_eval_jaxpr = jax.jit(sharded_eval_jaxpr)
     def evaluate_jaxpr_with_args(*args):
