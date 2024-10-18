@@ -342,7 +342,9 @@ class MeshHostWorker:
         result = shard_parallel(self.jax_all_stages[stage_id], flat_args, self.out_tree)
 
         for var, val in zip(output_vars,result):
-             self.buffers[micro_batch_id][var] = val
+            with cupy.cuda.Device(0):
+                self.buffers[micro_batch_id][var] = val
+                print(f'缓冲buff的形状: {val.shape}')
         print(stage_id,"FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF")
     def run_model_parallelism(self,num):
 
