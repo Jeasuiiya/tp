@@ -55,6 +55,7 @@ pip install -r requirements-dev.txt
 
 ```bash
 pip install -r requirements-dev.txt
+sed -i 's/\r$//' ./scripts/configure ##换行符格式不兼容
 ./scripts/configure
 cd build && ninja
 ```

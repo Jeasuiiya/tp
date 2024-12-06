@@ -344,7 +344,7 @@ class MeshHostWorker:
         for var, val in zip(output_vars,result):
             with cupy.cuda.Device(0):
                 self.buffers[micro_batch_id][var] = val
-                print(f'缓冲buff的形状: {val.shape}')
+                #print(f'缓冲buff的形状: {val.shape}')
         print(stage_id,"FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF")
     def run_model_parallelism(self,num):
 

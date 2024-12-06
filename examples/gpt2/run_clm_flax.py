@@ -45,6 +45,9 @@ from flax.training import train_state
 from flax.training.common_utils import get_metrics, onehot, shard, shard_prng_key
 from huggingface_hub import HfApi
 from tqdm import tqdm
+from geesibling.adapters.jax import parallelize, device_config, DeviceType
+# from geesibling.adapters.jax.api import parallelize
+from geesibling.adapters.jax.parallel_method import PipeshardParallel,ShardParallel
 
 import transformers
 from transformers import (
@@ -718,11 +721,65 @@ def main():
     #     num_microbatch=4,
     #     layer_method="auto",
     #     if_ray=True
-    #
     # )
-    # @parallelize(parallel_method=method)
-    def train_step(state, batch):
-        dropout_rng, new_dropout_rng = jax.random.split(state.dropout_rng)
+    method=ShardParallel(
+        policy="sgp",
+        devices=device_config(
+        {
+            "gpu:0": {
+            "type": DeviceType.gpu,
+            "memory": 3 * 1024 * 1024* 1024 ,
+            "free_memory":3 * 1024 * 1024* 1024 ,
+            "execute_time": 0,
+            },
+            "gpu:1": {
+            "type": DeviceType.gpu,
+            "memory": 3 * 1024 * 1024* 1024 ,
+            "free_memory":3 * 1024 * 1024* 1024 ,
+            "execute_time": 0,
+            },
+            "gpu:2": {
+            "type": DeviceType.gpu,
+            "memory": 3 * 1024 * 1024* 1024 ,
+            "free_memory":3 * 1024 * 1024* 1024 ,
+            "execute_time": 0,
+            },
+            "gpu:3": {
+            "type": DeviceType.gpu,
+            "memory": 3 * 1024 * 1024* 1024 ,
+            "free_memory":3 * 1024 * 1024* 1024 ,
+            "execute_time": 0,
+            },
+            "gpu:4": {
+            "type": DeviceType.gpu,
+            "memory": 3 * 1024 * 1024* 1024 ,
+            "free_memory":3 * 1024 * 1024* 1024 ,
+            "execute_time": 0,
+            },
+            "gpu:5": {
+            "type": DeviceType.gpu,
+            "memory": 3 * 1024 * 1024* 1024 ,
+            "free_memory":3 * 1024 * 1024* 1024 ,
+            "execute_time": 0,
+            },
+            "gpu:6": {
+            "type": DeviceType.gpu,
+            "memory": 3 * 1024 * 1024* 1024 ,
+            "free_memory":3 * 1024 * 1024* 1024 ,
+            "execute_time": 0,
+            },
+            "gpu:7": {
+            "type": DeviceType.gpu,
+            "memory": 3 * 1024 * 1024* 1024 ,
+            "free_memory":3 * 1024 * 1024* 1024 ,
+            "execute_time": 0,
+            }
+        }
+    ) )
+    @parallelize(parallel_method=method)
+    # Define gradient update step fn
+    def train_step(state, batch, dropout_rng): # 修改1 —— 添加dropout_rng参数
+        # dropout_rng, new_dropout_rng = jax.random.split(state.dropout_rng) #修改2 —— 注释掉整行
 
         def compute_loss(params):
             labels = batch.pop("labels")
@@ -730,14 +787,14 @@ def main():
             loss = loss_fn(logits, labels)
             return loss
 
-        grad_fn = jax.value_and_grad(compute_loss)
+        grad_fn = method.value_and_grad(compute_loss) # 修改3 —— 把jax的方法改成method的方法
         loss, grad = grad_fn(state.params)
-        grad = jax.lax.pmean(grad, "batch")
+        # grad = jax.lax.pmean(grad, "batch") 分配给不同设备计算，再获取平均梯度，以实现并行
 
-        new_state = state.apply_gradients(grads=grad, dropout_rng=new_dropout_rng)
+        new_state = state.apply_gradients(grads=grad) # 修改4 —— 删除掉dropout_rng=new_dropout_rng参数
 
         metrics = {"loss": loss, "learning_rate": linear_decay_lr_schedule_fn(state.step)}
-        metrics = jax.lax.pmean(metrics, axis_name="batch")
+        # metrics = jax.lax.pmean(metrics, axis_name="batch") 并行计算指标
 
         return new_state, metrics
 
@@ -749,21 +806,22 @@ def main():
 
         # summarize metrics
         metrics = {"loss": loss}
-        metrics = jax.lax.pmean(metrics, axis_name="batch")
+        # metrics = jax.lax.pmean(metrics, axis_name="batch")并行计算损失
         return metrics
 
     # Create parallel version of the train and eval step
-    p_train_step = jax.pmap(train_step, "batch", donate_argnums=(0,))
-    p_eval_step = jax.pmap(eval_step, "batch")
+    # p_train_step = jax.pmap(train_step, "batch", donate_argnums=(0,))
+    # p_eval_step = jax.pmap(eval_step, "batch")
 
     # Replicate the train state on each device
-    state = state.replicate()
+    # state = state.replicate()
 
     logger.info("***** Running training *****")
     logger.info(f"  Num examples = {len(train_dataset)}")
     logger.info(f"  Num Epochs = {num_epochs}")
-    logger.info(f"  Instantaneous batch size per device = {training_args.per_device_train_batch_size}")
-    logger.info(f"  Total train batch size (w. parallel & distributed) = {train_batch_size}")
+    # logger.info(f"  Instantaneous batch size per device = {training_args.per_device_train_batch_size}")
+    # logger.info(f"  Total train batch size (w. parallel & distributed) = {train_batch_size}")
+    logger.info(f"  Total train batch size (no parallel) = {train_batch_size}")
     logger.info(f"  Total optimization steps = {total_train_steps}")
 
     train_time = 0
@@ -782,8 +840,12 @@ def main():
         # train
         for step in tqdm(range(steps_per_epoch), desc="Training...", position=1, leave=False):
             batch = next(train_loader)
-            batch = shard(batch)
-            state, train_metric = p_train_step(state, batch)
+            # batch = shard(batch) 并行分配数据
+            # state, train_metric = p_train_step(state, batch) 使用并行训练步骤
+
+            dropout_rng, new_dropout_rng = jax.random.split(dropout_rng) # 修改6 —— 对dropout_rng输出进行随机切分
+            state, train_metric = train_step(state, batch, dropout_rng) # 修改7 —— 添加dropout_rng参数
+            dropout_rng = new_dropout_rng # 修改8 —— 更新dropout_rng
             train_metrics.append(train_metric)
 
             cur_step = epoch * (len(train_dataset) // train_batch_size) + step
